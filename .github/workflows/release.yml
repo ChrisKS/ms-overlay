@@ -1,0 +1,43 @@
+name: Build and release
+
+on:
+  push:
+    tags: ["v*"]          # e.g. git tag v1.0.0 && git push --tags
+  workflow_dispatch:      # manual run from the Actions tab (builds, uploads as an artifact only)
+
+permissions:
+  contents: write         # needed to create the release
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Build MapleReader.zip
+        shell: powershell
+        run: ./build.ps1
+
+      - name: Name the zip after the version
+        shell: powershell
+        run: |
+          $name = if ($env:GITHUB_REF_TYPE -eq "tag") { "MapleReader-$env:GITHUB_REF_NAME.zip" } else { "MapleReader-dev.zip" }
+          Move-Item MapleReader.zip $name
+          "ZIP_NAME=$name" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ZIP_NAME }}
+          path: ${{ env.ZIP_NAME }}
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP_NAME }}
+          generate_release_notes: true
