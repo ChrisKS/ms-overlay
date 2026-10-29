@@ -1,0 +1,5 @@
+mss
+Pillow
+numpy
+pytesseract
+pyinstaller

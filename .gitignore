@@ -1,0 +1,8 @@
+build/
+dist/
+__pycache__/
+*.spec
+maple_settings.json
+maple_log.csv
+maple_glyphs.json
+*.zip
