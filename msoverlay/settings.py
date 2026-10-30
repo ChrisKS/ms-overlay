@@ -26,7 +26,7 @@ DEFAULTS = dict(
     # data
     log_csv=True,
     # discord
-    discord_webhook="", discord_levelups=True, discord_screenshot=False, discord_sessions=True,
+    discord_webhook="", discord_levelups=True, discord_screenshot=False, discord_sessions=False,
     discord_presence=False, discord_app_id="",
 )
 # kept by "Restore default settings": not preferences, but who you are and what you connected

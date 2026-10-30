@@ -240,7 +240,7 @@ class DiscordLink:
             note = (f"Couldn't post: {err}." if err else
                     "Test message sent." if test else f"Last post: {time.strftime('%H:%M')}")
             if not err and screenshot and image is None:
-                note += " (no screenshot: the MapleStory window couldn't be captured)"
+                note += f" (no screenshot: {gamewindow.last_problem})"
             self.notify(note)
         if wait: go()
         else: threading.Thread(target=go, daemon=True).start()
