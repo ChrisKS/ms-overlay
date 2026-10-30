@@ -91,3 +91,25 @@ def test_settings_tabs_keep_their_size_when_selected(overlay):
         nb.select(i)
         layouts.add((tuple(tab_edges(2)), tuple(tab_edges(16))))   # top edge and middle of the tabs
     assert len(layouts) == 1
+
+
+def test_update_notice_shows_and_opens_only_the_release_page(overlay, monkeypatch):
+    import webbrowser
+    from msoverlay.updates import REPO
+    opened = []
+    monkeypatch.setattr(webbrowser, "open", opened.append)
+    ov = overlay
+    ov.redraw()
+    assert not ov.cv.find_withtag("update")
+    ov.updates.available = ("v9.9.9", f"https://github.com/{REPO}/releases/tag/v9.9.9")
+    ov.redraw(); ov.root.update()
+    assert ov.cv.itemcget(ov.cv.find_withtag("update")[-1], "text") == "Update v9.9.9 available"
+    x1, y1, x2, y2 = ov.cv.bbox(ov.cv.find_withtag("update")[-1])
+    ov.cv.event_generate("<ButtonPress-1>", x=(x1 + x2) // 2, y=(y1 + y2) // 2); ov.root.update()
+    assert opened == [f"https://github.com/{REPO}/releases/tag/v9.9.9"]
+    ov.S["check_updates"] = False; ov.redraw()                 # turned off: no notice
+    assert not ov.cv.find_withtag("update")
+    ov.S["check_updates"] = True
+    ov.updates.available = ("v9.9.9", "https://example.com/evil")
+    ov.open_update()
+    assert len(opened) == 1                                     # never a page outside the repository

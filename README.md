@@ -6,7 +6,8 @@ to the next level, kills, and an optional graph. It can also post level-ups and 
 summaries to Discord, and show your progress on your Discord profile.
 
 It only **reads pixels from the screen**. It never touches game memory and never sends input to
-the game. It only uses the network if you turn on the Discord features.
+the game. It only uses the network to check for new versions (which you can turn off) and for
+the Discord features you turn on.
 
 ---
 
@@ -17,6 +18,7 @@ the game. It only uses the network if you turn on the Discord features.
 - [How reading works](#how-reading-works)
 - [How EXP is tracked](#how-exp-is-tracked)
 - [Discord](#discord)
+- [Updates](#updates)
 - [Settings](#settings)
 - [Files it creates](#files-it-creates)
 - [Command line](#command-line)
@@ -80,6 +82,7 @@ The macOS build only runs on Apple Silicon Macs (M1 and later), not on Intel Mac
 | **Status dot** | Grey: waiting for the first reading. Green: reading OK. Red: something is wrong (see the hint). Amber: paused. |
 | **Name** | The character name read from the status bar. You can hide it in the settings. |
 | **Hint** | A short red message appears after 5 failed reads in a row: `status bar not found`, `unreadable digit`, `can't read status bar` or `capture error`. |
+| **Update notice** | `Update v1.1.0 available` in the accent colour when a newer version is out (unless a red hint is showing). Click it to open the release's download page. See [Updates](#updates). |
 | **% and Lv** | The current EXP % and level. |
 | **Divider line** | Doubles as a level-progress bar, filled in the accent colour up to the current %. |
 
@@ -134,7 +137,8 @@ Click the small chevron (`▾` / `▴`) at the bottom to open or close the graph
 | Left-drag | Move the overlay (unless *Lock position* is on). The position is saved. |
 | Click `▾` / `▴` | Show or hide the graph. |
 | Click `EXP` / `%` / `EXP/H` | Switch what the graph plots. |
-| Right-click (or Control-click on a Mac) | Menu: **Pause / Resume**, **Reset session**, **Settings…**, **Quit**. |
+| Click `Update … available` | Open the new release's download page. |
+| Right-click (or Control-click on a Mac) | Menu: **Pause / Resume**, **Reset session**, **Settings…**, **Download update…** (when there is one), **Quit**. |
 
 **Pause** works like a stopwatch: the session stops until you resume. **Reset session** clears
 every accumulated number and starts fresh. See [Pausing](#pausing) for exactly what Pause does.
@@ -311,6 +315,26 @@ Details:
 
 ---
 
+## Updates
+
+ms-overlay tells you when a newer version has been released. It asks GitHub for the latest
+release of this repository 10 seconds after starting and then every 6 hours. When there's a
+newer one, the overlay shows `Update v1.1.0 available` in its header, and the right-click menu
+gets **Download update…**. Either one opens the release's download page in your browser; it
+only ever opens a page of this repository's releases.
+
+Nothing is downloaded or installed: to update, download the new zip and replace the old app.
+Settings and the log stay where they are.
+
+- Only published releases count, never drafts or pre-releases.
+- The version is stamped into the app when a release is built, from the release's tag.
+  Builds from source or from a manual workflow run are development builds, which never check.
+- Turn it off with **Tell me when a new version is out** in **Settings → General**. The line
+  below it shows the result of the last check.
+- If GitHub can't be reached, nothing happens; the settings line says why.
+
+---
+
 ## Settings
 
 Open **Settings…** from the right-click menu. Changes apply instantly and are saved
@@ -325,6 +349,7 @@ automatically.
 | Show character name | On | |
 | Start a new session when the character changes | On | See [New character](#new-character). |
 | Screen reads per second | 10 | 2–20. Higher means faster updates and slightly more CPU. |
+| Tell me when a new version is out | On | See [Updates](#updates). |
 
 ### Rates
 
@@ -460,6 +485,7 @@ and `python ms_overlay.py` keep working.
 | `datalog.py` | The CSV log |
 | `discord.py` | Webhook posts, Rich Presence, and the messages they send |
 | `gamewindow.py` | Screenshots of the game window only (Windows and macOS) |
+| `updates.py`, `version.py` | Checking GitHub for a newer release; the app's version |
 | `ui/overlay.py` | The overlay window |
 | `ui/graph.py`, `ui/columns.py` | What the graph and the rate columns show, and drawing the graph |
 | `ui/settings_window.py` | The settings window |
@@ -527,7 +553,8 @@ Gatekeeper asks before the first launch (see [Quick start](#macos-apple-silicon)
 `.github/workflows/tests.yml` runs the tests on every push and pull request.
 
 `.github/workflows/release.yml` runs the same tests, then builds on `windows-latest` and on
-`macos-latest` (Apple Silicon) at the same time:
+`macos-latest` (Apple Silicon) at the same time. Before building, it writes the tag into
+`msoverlay/version.py`, so the app knows its version for [update checks](#updates):
 
 - **Pushing a `v*` tag**, e.g. `git tag v1.0.0 && git push --tags`, builds
   `ms-overlay-windows-v1.0.0.zip` and `ms-overlay-macos-v1.0.0.zip`. Once both builds

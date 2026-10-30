@@ -13,6 +13,7 @@ from ..datalog import log_row
 from ..discord import DiscordLink
 from ..paths import DATA, MAC, WIN
 from ..session import Session, different_character
+from ..updates import REPO, UpdateChecker
 from ..settings import GRAPH_MODES
 from . import columns, graph
 from .settings_window import SettingsWindow
@@ -31,6 +32,7 @@ class Overlay:
         self.q = queue.Queue()
         self.reader = Reader(self.q, self.S, self.session, demo)
         self.discord = DiscordLink(self.S, lambda text: self.q.put(("discord", text)), posts=not demo)
+        self.updates = UpdateChecker(lambda: self.S["check_updates"])
         self.drag = None
         self.settings_win = None
         self._fonts = {}
@@ -166,6 +168,7 @@ class Overlay:
         self.drag = None
         tags = e.widget.gettags("current")
         if "toggle" in tags: return self.toggle_graph()
+        if "update" in tags: return self.open_update()
         for k in GRAPH_MODES:
             if f"mode_{k}" in tags: self.S["mode"] = k; return self.redraw()
         self.fix_stack()
@@ -187,6 +190,8 @@ class Overlay:
         m.add_command(label="Reset session", command=self.reset)
         m.add_separator()
         m.add_command(label="Settings…", command=self.open_settings)
+        if self.update_available():
+            m.add_command(label=f"Download update {self.update_available()[0]}…", command=self.open_update)
         m.add_separator()
         m.add_command(label="Quit", command=self.quit)
         m.tk_popup(e.x_root, e.y_root)
@@ -235,6 +240,19 @@ class Overlay:
         self.discord.update_presence(self.session, time.time())
         if self.settings_win is not None and self.settings_win.exists():
             self.settings_win.set_discord_status(self.discord.webhook_status, self.discord.presence_status())
+            self.settings_win.update_status.set(self.updates.status)
+
+    # ---- updates
+    def update_available(self):
+        """(tag, url) of a newer release, while checking is on."""
+        return self.updates.available if self.S["check_updates"] else None
+
+    def open_update(self):
+        """Open the release's download page, only ever on this repository's GitHub releases."""
+        avail = self.update_available()
+        if avail and avail[1].startswith(f"https://github.com/{REPO}/releases/"):
+            import webbrowser
+            webbrowser.open(avail[1])
 
     # ---- drawing
     def txt(self, x, y, text, size, color, bold=False, anchor="center", tags="dyn"):
@@ -261,6 +279,8 @@ class Overlay:
         lvl, exp, pct = ses.cur or (None, None, None)
         if ses.hint and not ses.paused:
             self.txt(W / 2 + 10, 26, ses.hint, 9, BAD)
+        elif self.update_available():                    # a problem reading the game matters more
+            self.txt(W / 2 + 10, 26, f"Update {self.update_available()[0]} available", 9, self.acc, False, "center", ("dyn", "update"))
         lv = self.txt(W - 28, 26, f"Lv {lvl}" if lvl else f"Lv {fmt.DASH}", 12, self.c_fg, True, "e")
         if pct is not None:
             x = cv.bbox(lv)[0] - 14
@@ -339,5 +359,6 @@ class Overlay:
         for w in self.layers: w.update_idletasks()
         self.win32_own(); self.fix_stack()
         self.reader.start()
+        self.updates.start()
         self.root.after(300, self.poll)
         self.root.mainloop()

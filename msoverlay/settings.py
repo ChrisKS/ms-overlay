@@ -12,6 +12,7 @@ DEFAULTS = dict(
     name="Character", x=None, y=None,
     # general
     topmost=True, lock_position=False, show_name=True, reset_on_char=True, reads_per_sec=10,
+    check_updates=True,
     graph=False, mode="exp",
     # graph
     graph_style="step", graph_fill=True, graph_width=2, graph_opacity=1.0, fill_opacity=0.25,
@@ -52,7 +53,7 @@ GRAPH_STYLES = {"step": "Stepped (sharp)", "line": "Straight lines", "smooth": "
 # what the graph plots: key -> (button label, settings label), in the order the buttons appear
 GRAPH_MODES = {"exp": ("EXP", "EXP gained"), "pct": ("%", "% gained"), "rate": ("EXP/H", "EXP per hour")}
 
-_BOOLS = ("topmost", "lock_position", "show_name", "reset_on_char", "graph", "log_csv", "graph_fill",
+_BOOLS = ("topmost", "lock_position", "show_name", "reset_on_char", "check_updates", "graph", "log_csv", "graph_fill",
           "text_shadow", "rate_dim", "graph_avg", "discord_levelups", "discord_screenshot", "discord_sessions",
           "discord_presence")
 _TEXTS = ("discord_webhook", "discord_app_id")

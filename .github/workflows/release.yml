@@ -31,6 +31,13 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - name: Stamp the version into the app
+        shell: bash
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then v="$GITHUB_REF_NAME"; else v="dev"; fi
+          printf '"""Stamped by the release workflow."""\nVERSION = "%s"\n' "$v" > msoverlay/version.py
+          echo "VERSION=$v" >> "$GITHUB_ENV"
+
       - name: Build ms-overlay.zip (Windows)
         if: matrix.os == 'windows'
         shell: powershell
@@ -47,8 +54,7 @@ jobs:
       - name: Name the zip after the platform and version
         shell: bash
         run: |
-          if [ "$GITHUB_REF_TYPE" = "tag" ]; then v="$GITHUB_REF_NAME"; else v="dev"; fi
-          name="ms-overlay-${{ matrix.os }}-$v.zip"
+          name="ms-overlay-${{ matrix.os }}-$VERSION.zip"
           mv ms-overlay.zip "$name"
           echo "ZIP_NAME=$name" >> "$GITHUB_ENV"
 
