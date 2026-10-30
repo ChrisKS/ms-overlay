@@ -1,6 +1,7 @@
 import pytest
 
 from msoverlay import fmt
+from msoverlay.settings import KINDS
 from msoverlay.tracker import Tracker
 from msoverlay.ui import columns, graph
 
@@ -63,8 +64,10 @@ def test_nice_ticks():
     assert graph.nice_ticks(0, 3.4e7)[:3] == [0, 1e7, 2e7]
 
 
-def test_line_joins_columns_with_compact_numbers(session_tracker):
+def test_line_shows_columns_exactly_as_the_overlay_does(session_tracker):
     tr, now = session_tracker
-    assert columns.line(tr, [(300, "exp_h"), (300, "kills"), (0, "exp_gain")], now) == \
-        "EXP/H 3,6M \u00b7 KILLS 30 \u00b7 EXP +1,19M"
+    cols = [(300, "exp_h"), (300, "kills"), (0, "exp_gain")]
+    assert columns.line(tr, cols, now) == "EXP/H 3.600.000 \u00b7 KILLS 30 \u00b7 EXP +1.190.000"
+    assert columns.line(tr, cols, now) == " \u00b7 ".join(
+        f"{KINDS[k][0]} {columns.value(tr, k, now, w)[0]}" for w, k in cols)   # same text as the columns
     assert columns.line(Tracker(), [(300, "exp_h")], now) == ""          # no data yet: left out

@@ -32,11 +32,11 @@ def num(n):
 
 
 def short(n):
-    """Compact number for tight spots like axis labels: 850k, 1,25M."""
+    """Compact number for tight spots like axis labels: 2.500, 850k, 1,25M."""
     a = abs(n)
     if a >= 1e6: t = f"{a / 1e6:.2f}".rstrip("0").rstrip(".") + "M"
     elif a >= 1e4: t = f"{a / 1e3:.0f}k"
-    else: t = str(int(round(a)))
+    else: return num(n)                          # small enough to show whole: 2.500
     return ("-" if n < 0 else "") + _decimal(t)
 
 
