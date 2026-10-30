@@ -70,8 +70,8 @@ The macOS build only runs on Apple Silicon Macs (M1 and later), not on Intel Mac
 ```
  ● Character            (hint)            51.23%   Lv 142
  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━   ← level progress
-   EXP/H · 5M   │  EXP/H · 15M  │  EXP/H · 30M  │  EXP/H · 60M
-   12.345.678   │  11.902.114   │  11.450.000   │  10.998.210
+ EXP · SESSION  │  EXP/H · 5M   │  EXP/H · 30M  │ LEVEL IN · 30M
+ +8.765.432     │  12.345.678   │  11.450.000   │    5:12:00
                               ▾                               ← show/hide graph
 ```
 
@@ -320,8 +320,8 @@ Details:
 
 - The first line shows your level and %. The second line shows up to two items you choose,
   with the same options as the [rate columns](#rate-columns): what each shows (EXP per hour,
-  time to level, kills, …) and how many minutes it covers. By default it's EXP/h and time to
-  level, both over the last 15 minutes. Turn both items off to show only the first line.
+  time to level, kills, …) and how many minutes it covers. By default it's the EXP gained
+  this session and EXP/h over the last 5 minutes. Turn both items off to show only the first line.
   Items without enough data yet are left out; with none to show, it says *Starting a
   session*.
 - The time counts up from the start of the session, leaving out paused time. While paused it
@@ -389,18 +389,19 @@ There are four column slots. For each one you set:
 - **Minutes**, from 0 to 720. 0 means the whole session.
 - **What it shows**: one of the kinds in [Rate columns](#rate-columns).
 
-The defaults are four EXP/H columns at 5, 15, 30 and 60 minutes. Dimming numbers until their
-window has filled up is on by default.
+The defaults are: EXP gained over the whole session (0 minutes), EXP/H over 5 minutes, EXP/H
+over 30 minutes, and time to level at the pace of the last 30 minutes. Dimming numbers until
+their window has filled up is on by default.
 
 ### Appearance
 
 | Setting | Options |
 |---|---|
-| Text colour | White, Silver, Sky, Cyan, Mint, Yellow, Amber, Orange, Rose, Pink, Violet, or any colour with the rainbow dot (opens the colour picker). A custom colour shows in that dot. |
-| Text size | Small, Normal, Large, Extra large |
+| Text colour | White, Silver, Sky (the default), Cyan, Mint, Yellow, Amber, Orange, Rose, Pink, Violet, or any colour with the rainbow dot (opens the colour picker). A custom colour shows in that dot. |
+| Text size | Small, Normal (the default), Large, Extra large |
 | Text shadow | On or off (default on) |
-| Accent colour | The same colours as the text, or any colour with the rainbow dot. Used for the progress bar, the graph and the buttons. |
-| Opacity | **Background** 0–100%, **Text** 20–100% |
+| Accent colour | The same colours as the text (default Sky), or any colour with the rainbow dot. Used for the progress bar, the graph and the buttons. |
+| Opacity | **Background** 0–100% (default 85%), **Text** 20–100% (default 100%) |
 | Number format | `1.234.567` (Danish, the default), `1,234,567` (English), `1 234 567` (spaces), `1.2M` (compact) |
 
 With the Danish format, percentages use a decimal comma (`12,50%`). In every format, numbers
@@ -413,14 +414,14 @@ transparent windows stacked together, so each one can fade on its own.
 
 | Setting | Options |
 |---|---|
-| Show graph | On or off |
-| Plots | EXP gained, % gained or EXP per hour |
+| Show graph | On or off (default off) |
+| Plots | EXP gained, % gained or EXP per hour (the default) |
 | EXP per hour: rate over the last | 1–60 minutes (default 5). Shorter shows every change of pace; longer is calmer. |
 | EXP per hour: session average | Show or hide the dashed session-average line (default on) |
-| Line style | **Stepped** shows exactly when EXP arrived, **Straight** joins the points, **Smooth** averages them |
-| Line thickness | 1–4 px |
-| Line opacity | 0–100% |
-| Fill under the line | On or off, plus fill opacity 0–100% (default 25%) |
+| Line style | **Stepped** shows exactly when EXP arrived, **Straight** joins the points (the default), **Smooth** averages them |
+| Line thickness | 1–4 px (default 1) |
+| Line opacity | 0–100% (default 50%) |
+| Fill under the line | On or off (default on), plus fill opacity 0–100% (default 5%) |
 
 ### Data
 
@@ -440,7 +441,7 @@ transparent windows stacked together, so each one can fade on its own.
 | Attach a screenshot of the game to level-up posts | Off | See [Screenshots with level-ups](#screenshots-with-level-ups). |
 | Post a summary when a session ends | Off | Only once a webhook URL is set, and only for sessions of 5+ minutes. |
 | Show on my Discord profile | Off | See [Profile status](#profile-status-rich-presence). |
-| Item 1, Item 2 | On, 15 minutes, EXP per hour / Time to next level | What the second line of your Discord status shows, like the rate columns. |
+| Item 1, Item 2 | On; EXP gained over the whole session / EXP per hour over 5 minutes | What the second line of your Discord status shows, like the rate columns. |
 | Own Application ID | Empty | Optional: your own Discord application, to show another name after "Playing". Empty uses ms-overlay's. |
 
 ---

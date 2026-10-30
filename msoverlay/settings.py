@@ -13,23 +13,23 @@ DEFAULTS = dict(
     # general
     topmost=True, lock_position=False, show_name=True, reset_on_char=True, reads_per_sec=10,
     check_updates=True,
-    graph=False, mode="exp",
+    graph=False, mode="rate",
     # graph
-    graph_style="step", graph_fill=True, graph_width=2, graph_opacity=1.0, fill_opacity=0.25,
+    graph_style="line", graph_fill=True, graph_width=1, graph_opacity=0.5, fill_opacity=0.05,
     graph_rate_minutes=5, graph_avg=True,
     # rate columns
-    rate_minutes=[5, 15, 30, 60], rate_on=[True, True, True, True],
-    rate_kind=["exp_h", "exp_h", "exp_h", "exp_h"], rate_dim=True,
+    rate_minutes=[0, 5, 30, 30], rate_on=[True, True, True, True],
+    rate_kind=["exp_gain", "exp_h", "exp_h", "eta"], rate_dim=True,
     # appearance
-    accent="#5ec8f2", text_color="#ffffff", font_scale=1.0, text_shadow=True,
-    bg_opacity=1.0, fg_opacity=1.0, number_format="da",
+    accent="#5ec8f2", text_color="#5ec8f2", font_scale=1.0, text_shadow=True,
+    bg_opacity=0.85, fg_opacity=1.0, number_format="da",
     # data
     log_csv=True,
     # discord
     discord_webhook="", discord_levelups=True, discord_screenshot=False, discord_sessions=False,
     discord_presence=False, discord_app_id="",
     # the presence's second line: column slots like the rate columns'
-    presence_minutes=[15, 15], presence_on=[True, True], presence_kind=["exp_h", "eta"],
+    presence_minutes=[0, 5], presence_on=[True, True], presence_kind=["exp_gain", "exp_h"],
 )
 # kept by "Restore default settings": not preferences, but who you are and what you connected
 KEEP_ON_RESTORE = ("name", "x", "y", "discord_webhook", "discord_app_id")
@@ -100,19 +100,17 @@ def sanitize(s):
     d = DEFAULTS
     for prefix in COLUMN_SETS:
         _column_slots(s, prefix)
-    s["bg_opacity"] = _num(s.get("bg_opacity"), 0.0, 1.0, 1.0)
-    s["fg_opacity"] = _num(s.get("fg_opacity"), 0.2, 1.0, 1.0)
-    s["reads_per_sec"] = int(_num(s.get("reads_per_sec"), 2, 20, 10))
-    if s.get("number_format") not in NUMBER_FORMATS: s["number_format"] = "da"
+    def num(k, lo, hi, cast=float):
+        s[k] = cast(_num(s.get(k), lo, hi, d[k]))
+    def choice(k, options):
+        if s.get(k) not in options: s[k] = d[k]
+    num("bg_opacity", 0.0, 1.0); num("fg_opacity", 0.2, 1.0)
+    num("graph_opacity", 0.0, 1.0); num("fill_opacity", 0.0, 1.0)
+    num("reads_per_sec", 2, 20, int); num("graph_rate_minutes", 1, 60, int); num("graph_width", 1, 4, int)
+    choice("number_format", NUMBER_FORMATS); choice("mode", GRAPH_MODES); choice("graph_style", GRAPH_STYLES)
     s["accent"] = _color(s.get("accent"), d["accent"])
     s["text_color"] = _color(s.get("text_color"), d["text_color"])
-    if s.get("mode") not in GRAPH_MODES: s["mode"] = "exp"
-    s["graph_rate_minutes"] = int(_num(s.get("graph_rate_minutes"), 1, 60, 5))
-    if s.get("graph_style") not in GRAPH_STYLES: s["graph_style"] = "step"
-    s["graph_opacity"] = _num(s.get("graph_opacity"), 0.0, 1.0, 1.0)
-    s["fill_opacity"] = _num(s.get("fill_opacity"), 0.0, 1.0, 0.25)
-    s["graph_width"] = int(_num(s.get("graph_width"), 1, 4, 2))
-    fs = _num(s.get("font_scale"), 0.8, 1.5, 1.0)
+    fs = _num(s.get("font_scale"), 0.8, 1.5, d["font_scale"])
     s["font_scale"] = min((v for _, v in FONT_SCALES), key=lambda v: abs(v - fs))
     for k in _BOOLS:
         s[k] = bool(s.get(k, d[k]))
