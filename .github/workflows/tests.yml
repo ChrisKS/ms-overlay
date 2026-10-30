@@ -2,9 +2,8 @@ name: Tests
 
 on:
   push:
-    branches: ["**"]      # not tags: a release tag runs the tests through the release workflow
-  pull_request:
-  workflow_call:          # the release workflow runs the tests before building
+    branches: [main]      # pull requests and tags run the tests through the release workflow
+  workflow_call:          # (the release workflow runs them before building)
 
 jobs:
   tests:
