@@ -42,12 +42,12 @@ KINDS = {
     "kills":    ("KILLS",    "Number of EXP gains (kills) in the window"),
     "avg":      ("AVG/KILL", "Average EXP per kill"),
 }
-ACCENTS = [("Sky", "#5ec8f2"), ("Mint", "#5fd38d"), ("Amber", "#e0b34a"), ("Rose", "#ef6a8a"),
-           ("Violet", "#a78bfa"), ("Orange", "#f59e57"), ("Silver", "#c9ced8")]
+# the colours offered for both the text and the accent (any other colour can be picked as custom)
+COLORS = [("White", "#ffffff"), ("Silver", "#c9ced8"), ("Sky", "#5ec8f2"), ("Cyan", "#b3f0ff"),
+          ("Mint", "#5fd38d"), ("Yellow", "#ffe48a"), ("Amber", "#e0b34a"), ("Orange", "#f59e57"),
+          ("Rose", "#ef6a8a"), ("Pink", "#ffc7dc"), ("Violet", "#a78bfa")]
 NUMBER_FORMATS = {"da": "1.234.567  (Danish)", "en": "1,234,567  (English)",
                   "space": "1 234 567  (spaces)", "compact": "1.2M  (compact)"}
-TEXT_COLORS = [("White", "#ffffff"), ("Soft", "#e3e6ee"), ("Yellow", "#ffe48a"), ("Cyan", "#b3f0ff"),
-               ("Mint", "#bff7d6"), ("Pink", "#ffc7dc")]
 FONT_SCALES = [("Small", 0.9), ("Normal", 1.0), ("Large", 1.15), ("Extra large", 1.3)]
 GRAPH_STYLES = {"step": "Stepped (sharp)", "line": "Straight lines", "smooth": "Smooth curve"}
 # what the graph plots: key -> (button label, settings label), in the order the buttons appear

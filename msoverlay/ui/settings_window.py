@@ -3,8 +3,7 @@ overlay.apply(), so changes show at once and are saved automatically."""
 import tkinter as tk
 from tkinter import ttk
 
-from ..settings import (ACCENTS, DEFAULTS, FONT_SCALES, GRAPH_MODES, GRAPH_STYLES, KINDS,
-                        NUMBER_FORMATS, TEXT_COLORS)
+from ..settings import COLORS, DEFAULTS, FONT_SCALES, GRAPH_MODES, GRAPH_STYLES, KINDS, NUMBER_FORMATS
 from ..updates import parse
 from ..version import VERSION
 from .theme import BG, BORDER, BUTTON, BUTTON_HOVER, DIM, FG, FIELD, FONT, SLIDER, TAB
@@ -25,6 +24,7 @@ class SettingsWindow:
         self.nb = ttk.Notebook(w); self.nb.pack(fill="both", expand=True, padx=14, pady=(14, 6))
         self.webhook_status, self.presence_status = tk.StringVar(), tk.StringVar()
         self.update_status = tk.StringVar(value=overlay.updates.status)
+        self.custom_dots = {}                            # settings key -> opens its colour picker
         for build in (self._general, self._rates, self._appearance, self._graph, self._data, self._discord):
             build()
         w.bind("<Destroy>", lambda e: root.after(30, overlay.fix_stack) if e.widget is w else None)
@@ -145,19 +145,38 @@ class SettingsWindow:
         ttk.Scale(f, from_=lo, to=hi, variable=v, command=cb, length=190).grid(row=row, column=1, columnspan=2, sticky="w", padx=(10, 6))
         ttk.Label(f, textvariable=t, width=5).grid(row=row, column=3, sticky="w")
 
-    def swatches(self, f, row, colors, key, after=None):
+    def swatches(self, f, row, key, after=None):
+        """A row of colour dots (COLORS), then a custom one that opens the system colour picker. A
+        colour that isn't in COLORS shows in the custom dot; the current colour is ringed."""
         fr = self.row_frame(f, row, pady=4)
-        items = []
+        dots = []
+        def dot():
+            c_ = tk.Canvas(fr, width=28, height=28, bg=BG, highlightthickness=0, cursor="hand2")
+            c_.pack(side="left", padx=2); return c_
         def paint():
-            for c, c_ in items:
+            cur = self.S[key].lower()
+            for c, c_ in dots:
                 c_.delete("all")
-                c_.create_oval(3, 3, 25, 25, fill=c, outline=FG if c.lower() == self.S[key].lower() else BG, width=2)
+                c_.create_oval(3, 3, 25, 25, fill=c, outline=FG if c == cur else BG, width=2)
+            custom.delete("all")
+            if cur in (c for c, _ in dots):              # a palette colour: show the custom dot as a rainbow
+                for i, c in enumerate(("#ef6a8a", "#e0b34a", "#5fd38d", "#5ec8f2", "#a78bfa", "#f59e57")):
+                    custom.create_arc(5, 5, 23, 23, start=i * 60, extent=60, fill=c, outline=c)
+                custom.create_oval(10, 10, 18, 18, fill=BG, outline=BG)
+                custom.create_oval(3, 3, 25, 25, outline=BG, width=2)
+            else:                                        # a custom colour: show it, ringed
+                custom.create_oval(3, 3, 25, 25, fill=cur, outline=FG, width=2)
         def pick(c):
             self.S[key] = c; self._changed(); paint()
             if after: after(c)
-        for _, c in colors:
-            c_ = tk.Canvas(fr, width=28, height=28, bg=BG, highlightthickness=0, cursor="hand2")
-            c_.pack(side="left", padx=2); c_.bind("<Button-1>", lambda e, c=c: pick(c)); items.append((c, c_))
+        def pick_custom(e=None):
+            from tkinter import colorchooser
+            _, c = colorchooser.askcolor(color=self.S[key], parent=self.win, title="Pick a colour")
+            if c: pick(c.lower())
+        for name, c in COLORS:
+            c_ = dot(); c_.bind("<Button-1>", lambda e, c=c: pick(c)); dots.append((c, c_))
+        custom = dot(); custom.bind("<Button-1>", pick_custom)
+        self.custom_dots[key] = pick_custom              # (for tests)
         paint()
 
     def radios(self, f, row, label, key, options, cols=4):
@@ -223,11 +242,11 @@ class SettingsWindow:
     def _appearance(self):
         ap = self.page("Appearance")
         self.head(ap, "Text colour", 0)
-        self.swatches(ap, 1, TEXT_COLORS, "text_color")
+        self.swatches(ap, 1, "text_color")
         self.radios(ap, 2, "Text size", "font_scale", FONT_SCALES)
         self.check(ap, 5, "Text shadow (helps text stand out)", "text_shadow", pady=(6, 2))
         self.head(ap, "Accent colour", 6)
-        self.swatches(ap, 7, ACCENTS, "accent", lambda c: self._accent_indicators(self.style, c))
+        self.swatches(ap, 7, "accent", lambda c: self._accent_indicators(self.style, c))
         self.head(ap, "Opacity", 8)
         self.slider(ap, 9, "Background", "bg_opacity", 0, 100)
         self.slider(ap, 10, "Text", "fg_opacity", 20, 100)

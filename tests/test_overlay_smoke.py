@@ -138,3 +138,18 @@ def test_always_on_top_is_only_reapplied_when_it_changes(overlay, monkeypatch):
     assert not [c for c in calls if c[0] == "-topmost"]
     ov.S["topmost"] = False; ov.apply()
     assert [c for c in calls if c[0] == "-topmost"] == [("-topmost", False)] * 4
+
+
+def test_text_and_accent_offer_the_same_colours_plus_a_custom_one(overlay, monkeypatch):
+    from tkinter import colorchooser
+    from msoverlay.settings import COLORS
+    ov = overlay
+    ov.open_settings()
+    picked = iter([((1, 2, 3), "#C0FFEE"), (None, None)])          # a colour, then "Cancel"
+    monkeypatch.setattr(colorchooser, "askcolor", lambda **kw: next(picked))
+    ov.settings_win.custom_dots["accent"]()
+    assert ov.S["accent"] == "#c0ffee" and ov.acc == "#c0ffee"
+    ov.settings_win.custom_dots["accent"]()                         # cancelled: unchanged
+    assert ov.S["accent"] == "#c0ffee"
+    assert set(ov.settings_win.custom_dots) == {"text_color", "accent"}
+    assert len(COLORS) == len({c for _, c in COLORS}) and ("White", "#ffffff") in COLORS
