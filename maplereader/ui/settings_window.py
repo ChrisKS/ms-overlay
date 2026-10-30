@@ -280,5 +280,5 @@ class SettingsWindow:
         af = self.row_frame(dc, 13, pady=(8, 0))
         ttk.Label(af, text="Own Application ID").pack(side="left")
         ttk.Entry(af, textvariable=self.svar("discord_app_id"), width=24).pack(side="left", padx=(10, 0))
-        self.hint(dc, 14, "Optional. Leave empty to show as MapleReader. To show another name after \u201cPlaying\u201d, "
+        self.hint(dc, 14, "Optional. Leave empty to use MapleReader\u2019s own application. To show another name after \u201cPlaying\u201d, "
                           "create an application at discord.com/developers/applications and paste its Application ID.", wrap=470)
