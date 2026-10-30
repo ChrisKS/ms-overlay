@@ -2,10 +2,11 @@
 
 A small always-on-top overlay that reads your **Level, EXP and EXP %** from the MapleStory
 status bar and shows how fast you're gaining EXP: EXP per hour over several time windows, time
-to the next level, kills, and an optional graph.
+to the next level, kills, and an optional graph. It can also post level-ups and session
+summaries to Discord, and show your progress on your Discord profile.
 
-It only **reads pixels from the screen**. It never touches game memory, never sends input to
-the game, and never talks to the network.
+It only **reads pixels from the screen**. It never touches game memory and never sends input to
+the game. It only uses the network if you turn on the Discord features.
 
 ---
 
@@ -15,6 +16,7 @@ the game, and never talks to the network.
 - [The overlay](#the-overlay)
 - [How reading works](#how-reading-works)
 - [How EXP is tracked](#how-exp-is-tracked)
+- [Discord](#discord)
 - [Settings](#settings)
 - [Files it creates](#files-it-creates)
 - [Command line](#command-line)
@@ -197,6 +199,69 @@ already been read once since the overlay started.
 
 ---
 
+## Discord
+
+Both Discord features are optional and set up in **Settings → Discord**. Nothing is sent
+anywhere until you set them up.
+
+### Channel posts (webhook)
+
+MapleReader can post to a Discord channel through a webhook. A webhook lets an app post to one
+channel. It needs no bot and no Discord login.
+
+1. In Discord, open the channel's settings: **Edit Channel → Integrations → Webhooks → New
+   Webhook**, then **Copy Webhook URL**. You need the *Manage Webhooks* permission, which you
+   have on your own server.
+2. Paste the URL into **Settings → Discord**, and click **Send test message**.
+
+It posts:
+
+- **Level-ups:** "Mapler reached level 143!", with the session time, EXP gained and EXP/h so
+  far. Each level is posted once per run, even if the level is briefly misread. A level-up only
+  counts if the new level starts below 50%.
+- **Session summaries:** time, EXP gained, average EXP/h, level (e.g. `142 → 143 (0,31%)`),
+  level % gained and kills. A summary is posted when a session ends: when you reset it, when
+  the character changes, or when you quit. Sessions with less than 5 minutes since the first
+  EXP gain aren't posted.
+
+Both can be turned off separately. `--demo` never posts, except the test message. If a post
+fails (no internet, or the webhook was deleted), the reason is shown next to the test button.
+
+The webhook URL is hidden in the settings window because anyone who has it can post to that
+channel. It's stored in plain text in `maple_settings.json`, so don't share that file.
+
+### Profile status (Rich Presence)
+
+Rich Presence shows what you're doing on your Discord profile and in the member list:
+
+```
+Playing MapleStory
+Lv 143 · 0,31%
+7,64M EXP/h · level in 5h 12m
+00:42:17 elapsed
+```
+
+It talks to the Discord desktop app running on the same computer, so Discord must be open.
+Discord shows the name of a Discord *application* after "Playing", so you need to create one
+once:
+
+1. Go to [discord.com/developers/applications](https://discord.com/developers/applications)
+   and click **New Application**. Name it what you want shown, for example `MapleStory`.
+2. Copy its **Application ID**, a long number on the *General Information* page.
+3. In **Settings → Discord**, turn on **Show on my Discord profile** and paste the ID. The
+   status line below it says whether it's connected.
+
+Details:
+
+- The EXP/h is from the last 15 minutes, or the whole session if it's shorter. The time
+  counts up from the start of the session. While paused it shows *Paused*.
+- If the status bar hasn't been read for a minute (the game is closed, for example), the status
+  is cleared until it's read again.
+- Discord accepts at most one update every 15 seconds, so the numbers lag a little.
+- If Discord isn't running, MapleReader keeps trying every 15 seconds in the background.
+
+---
+
 ## Settings
 
 Open **Settings…** from the right-click menu. Changes apply instantly and are saved
@@ -259,8 +324,18 @@ transparent windows stacked together, so each one can fade on its own.
 - **Open data folder** opens the folder that holds the settings and log.
 - **Reset session now** and **Reset window position**. The default position is centred at the
   top of the main screen.
-- **Restore default settings** resets everything except the character name and the window
-  position.
+- **Restore default settings** resets everything except the character name, the window
+  position, and the Discord webhook URL and Application ID.
+
+### Discord
+
+| Setting | Default | Notes |
+|---|---|---|
+| Webhook URL | Empty | See [Channel posts](#channel-posts-webhook). |
+| Post when you level up | On | Only once a webhook URL is set. |
+| Post a summary when a session ends | On | Only once a webhook URL is set, and only for sessions of 5+ minutes. |
+| Show on my Discord profile | Off | See [Profile status](#profile-status-rich-presence). |
+| Application ID | Empty | The ID of your Discord application. |
 
 ---
 
@@ -272,7 +347,7 @@ unchanged. When run from source, they're written next to `maple_reader.py`.
 
 | File | Contents |
 |---|---|
-| `maple_settings.json` | All settings, plus the window position and the last character name. Settings from older versions are migrated on load, and invalid values are replaced with defaults. |
+| `maple_settings.json` | All settings, plus the window position and the last character name. Settings from older versions are migrated on load, and invalid values are replaced with defaults. If you use Discord, this file also holds the webhook URL, so don't share it. |
 | `maple_log.csv` | One row per accepted change: `time` (ISO local time), `level`, `exp`, `percent`. Rows are only added, never removed, across runs. |
 | `debug/` | Only with `--debug`: the raw and processed level-OCR crops. |
 
@@ -380,4 +455,7 @@ Silicon) at the same time:
 | Mac: `status bar not found` while the game is visible | Allow MapleReader under *Screen Recording* in System Settings → Privacy & Security, then quit and reopen it. Each new version needs this again. |
 | Values show `~` | A level-up was estimated. See [Level-ups](#level-ups). |
 | Rates reset by themselves | The character name changed. You can turn off *Start a new session when the character changes*. |
+| Discord: `Couldn't post: the webhook was deleted.` | Someone deleted the webhook in Discord. Create a new one and paste its URL. |
+| Discord: `Not connected: Discord isn't running.` | Rich Presence needs the Discord desktop app open on the same computer. The browser version won't work. |
+| Discord: `Not connected: …` with another reason | Check that the Application ID is the number from your application's *General Information* page. |
 | Overlay hidden behind the game | Turn on *Always on top*, and run the game in windowed or borderless mode. Exclusive fullscreen can cover overlays. |

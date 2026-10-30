@@ -204,6 +204,7 @@ class Tracker:
 
     def reset(self):
         self.t0 = None; self.last = None; self.cand = None
+        self.first = None           # first accepted (level, exp, pct) of the session
         self.t_first = None         # time of the first EXP gain: the rate clock starts here
         self.points = []            # (t, cum_exp, cum_pct) on every change
         self.cum_exp = 0; self.cum_pct = 0.0
@@ -225,7 +226,7 @@ class Tracker:
             return False
         self._learn_req(lvl, exp, pct)
         if self.last is None:
-            self.t0 = t; self.last = reading; self.points = [(t, 0, 0.0)]
+            self.t0 = t; self.last = self.first = reading; self.points = [(t, 0, 0.0)]
             return True
         pl, pe, pp = self.last
         if lvl == pl and pp - pct > 30:   # looks like a level-up whose level we haven't re-read
@@ -341,6 +342,9 @@ DEFAULTS = dict(
     bg_opacity=1.0, fg_opacity=1.0, number_format="da",
     # data
     log_csv=True,
+    # discord
+    discord_webhook="", discord_levelups=True, discord_sessions=True,
+    discord_presence=False, discord_app_id="",
 )
 # what a column can show: key -> (header label, description for the settings list)
 KINDS = {
@@ -390,8 +394,11 @@ def sanitize(s):
     s["graph_width"] = int(_num(s.get("graph_width"), 1, 4, 2))
     if not (isinstance(s.get("text_color"), str) and re.fullmatch(r"#[0-9a-fA-F]{6}", s["text_color"])): s["text_color"] = "#ffffff"
     fs = _num(s.get("font_scale"), 0.8, 1.5, 1.0); s["font_scale"] = min((v for _, v in FONT_SCALES), key=lambda v: abs(v - fs))
-    for k in ("topmost", "lock_position", "show_name", "reset_on_char", "graph", "log_csv", "graph_fill", "text_shadow", "rate_dim", "graph_avg"):
+    for k in ("topmost", "lock_position", "show_name", "reset_on_char", "graph", "log_csv", "graph_fill", "text_shadow", "rate_dim", "graph_avg",
+              "discord_levelups", "discord_sessions", "discord_presence"):
         s[k] = bool(s.get(k, d[k]))
+    for k in ("discord_webhook", "discord_app_id"):
+        s[k] = str(s.get(k) or "").strip()[:300]
     return s
 
 def load_settings():
@@ -465,6 +472,115 @@ def rrect(cv, x1, y1, x2, y2, r, **kw):
            x2 - r, y2, x1 + r, y2, x1, y2, x1, y2 - r, x1, y1 + r, x1, y1]
     return cv.create_polygon(pts, smooth=True, **kw)
 
+# ------------------------------------------------------------------ Discord
+USER_AGENT = "MapleReader (https://github.com/ChrisKS/ms-overlay)"
+WEBHOOK_RE = re.compile(r"https://(?:(?:ptb|canary)\.)?discord(?:app)?\.com/api/webhooks/\d+/[\w-]+")
+SUMMARY_MIN = 300                # a session needs this many seconds since its first EXP gain to be posted
+
+def post_webhook(url, payload, timeout=10):
+    """POST one message to a Discord webhook. -> None if it was sent, else a short reason."""
+    import urllib.request, urllib.error
+    if not WEBHOOK_RE.fullmatch(url or ""):
+        return "that isn't a Discord webhook URL"
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST",
+                                 headers={"Content-Type": "application/json", "User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout):
+            return None
+    except urllib.error.HTTPError as e:
+        return "the webhook was deleted" if e.code == 404 else f"Discord answered {e.code}"
+    except Exception as e:                       # offline, DNS, timeout...
+        return f"couldn't reach Discord ({getattr(e, 'reason', e)})"
+
+class DiscordPresence:
+    """Rich Presence through the Discord desktop app's local connection (a named pipe on Windows,
+    a socket on macOS/Linux). set() only records the wanted activity; a thread sends it, at most
+    once per 15 s (Discord's limit), and keeps retrying while Discord isn't running."""
+    def __init__(self):
+        self.app_id = self.activity = self.pipe = None
+        self.status = "off"
+        self.changed = threading.Event()
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def set(self, app_id, activity):
+        """app_id None turns presence off; activity None clears it but stays connected."""
+        if (app_id, activity) != (self.app_id, self.activity):
+            self.app_id, self.activity = app_id, activity
+            self.changed.set()
+
+    def _run(self):
+        conn = sent = None
+        while True:
+            self.changed.wait(); self.changed.clear()
+            app_id, act = self.app_id, self.activity
+            try:
+                if self.pipe is not None and conn != app_id:
+                    self._close()                    # turned off, or a different application
+                if not app_id:
+                    self.status = "off"; continue
+                if self.pipe is None:
+                    self._connect(app_id); conn, sent = app_id, None
+                if act != sent:
+                    self._send(1, {"cmd": "SET_ACTIVITY", "nonce": f"{time.time():.6f}",
+                                   "args": {"pid": os.getpid(), "activity": act}})
+                    op, reply = self._recv()
+                    if reply.get("evt") == "ERROR":
+                        raise ValueError(reply.get("data", {}).get("message", "Discord refused the update"))
+                    sent = act
+                self.status = "connected"
+            except (OSError, ValueError) as e:
+                self._close(); conn = sent = None
+                self.status = str(e) or "connection lost"
+                self.changed.set()                   # try again after the pause below
+            time.sleep(15)
+
+    def _connect(self, app_id):
+        for i in range(10):
+            try:
+                if sys.platform == "win32":
+                    self.pipe = open(rf"\\?\pipe\discord-ipc-{i}", "r+b", buffering=0)
+                else:
+                    import socket
+                    base = os.environ.get("XDG_RUNTIME_DIR") or os.environ.get("TMPDIR") or "/tmp"
+                    sk = socket.socket(socket.AF_UNIX); sk.settimeout(10)
+                    try: sk.connect(os.path.join(base, f"discord-ipc-{i}"))
+                    except OSError: sk.close(); raise
+                    self.pipe = sk
+                break
+            except OSError:
+                continue
+        if self.pipe is None:
+            raise OSError("Discord isn't running")
+        self._send(0, {"v": 1, "client_id": app_id})          # handshake
+        op, reply = self._recv()
+        if reply.get("evt") != "READY":
+            raise ValueError(reply.get("message") or "Discord didn't accept the Application ID")
+
+    def _send(self, op, obj):
+        data = json.dumps(obj).encode()
+        frame = op.to_bytes(4, "little") + len(data).to_bytes(4, "little") + data
+        if hasattr(self.pipe, "sendall"): self.pipe.sendall(frame)
+        else: self.pipe.write(frame)
+
+    def _recv(self):
+        def read(n):
+            out = b""
+            while len(out) < n:
+                c = self.pipe.recv(n - len(out)) if hasattr(self.pipe, "recv") else self.pipe.read(n - len(out))
+                if not c: raise OSError("Discord closed the connection")
+                out += c
+            return out
+        head = read(8)
+        op, n = int.from_bytes(head[:4], "little"), int.from_bytes(head[4:], "little")
+        return op, json.loads(read(n) or b"{}")
+
+    def _close(self):
+        try:
+            if self.pipe is not None: self.pipe.close()
+        except OSError:
+            pass
+        self.pipe = None
+
 # ------------------------------------------------------------------ UI
 class App:
     W, H, GH = 580, 128, 230     # width, collapsed height, extra height for the graph
@@ -480,6 +596,11 @@ class App:
         self.hint = ""
         self.loc = None             # where the status bar is on screen (set by the reader thread)
         self.drag = None
+        self.presence = DiscordPresence()
+        self.announced = {}         # character name -> highest level-up already posted
+        self.last_ok = 0.0          # when the status bar was last read fine (or the reader paused)
+        self.webhook_status = ""
+        self.discord_labels = None  # (webhook status, presence status) labels while settings is open
 
         # Four stacked, borderless windows so each part can have its own opacity (Windows can only
         # fade a whole window): background (root) < fill < graph line < text/UI. Everything above the
@@ -606,7 +727,11 @@ class App:
             pass
 
     def quit(self):
-        self.save(); self.root.destroy()
+        self.save()
+        for w in self.layers: w.withdraw()            # disappear at once; the summary may take a moment
+        self.root.update()
+        self.end_session(wait=True)
+        self.root.destroy()
 
     # ---- interaction
     def on_press(self, e):
@@ -635,7 +760,7 @@ class App:
         self.paused = not self.paused; self.status = "paused" if self.paused else "wait"; self.redraw()
 
     def reset(self):
-        self.tracker.reset(); self.redraw()
+        self.end_session(); self.tracker.reset(); self.redraw()
 
     def on_menu(self, e):
         tk = self.tk
@@ -835,6 +960,36 @@ class App:
         head(d, "Defaults", 5)
         ttk.Button(d, text="Restore default settings", command=self.restore_defaults).grid(row=6, column=0, sticky="w", pady=3, columnspan=2)
 
+        # ---------- Discord
+        dc = page("Discord")
+        st.configure("TEntry", insertcolor=FG, padding=4)
+        def svar(key):
+            v = tk.StringVar(value=S[key])
+            def cb(*_): S[key] = v.get().strip(); self.apply()
+            v.trace_add("write", cb); return v
+        def hint(row, text, pady=(0, 4)):
+            ttk.Label(dc, text=text, style="Hint.TLabel", wraplength=470, justify="left").grid(row=row, column=0, columnspan=4, sticky="w", pady=pady)
+        head(dc, "Channel webhook", 0)
+        hint(1, "Posts to a Discord channel. In Discord: Edit Channel \u2192 Integrations \u2192 Webhooks \u2192 New Webhook \u2192 Copy Webhook URL, then paste it here. It is hidden because anyone with it can post to the channel.")
+        ttk.Entry(dc, textvariable=svar("discord_webhook"), show="\u2022", width=58).grid(row=2, column=0, columnspan=4, sticky="w", pady=4)
+        ttk.Checkbutton(dc, text="Post when you level up", variable=bvar("discord_levelups")).grid(row=3, column=0, sticky="w", pady=3, columnspan=4)
+        ttk.Checkbutton(dc, text="Post a summary when a session ends (5+ minutes of EXP)", variable=bvar("discord_sessions")).grid(row=4, column=0, sticky="w", pady=3, columnspan=4)
+        hint(5, "A session ends when you reset it, switch character, or quit.")
+        wh_status, pr_status = tk.StringVar(), tk.StringVar()
+        tf = tk.Frame(dc, bg=BG); tf.grid(row=6, column=0, columnspan=4, sticky="w", pady=(4, 0))
+        ttk.Button(tf, text="Send test message", command=self.webhook_test).pack(side="left")
+        ttk.Label(tf, textvariable=wh_status, style="Hint.TLabel").pack(side="left", padx=(10, 0))
+        head(dc, "Rich Presence", 7)
+        hint(8, "Shows your level, EXP per hour and session time on your Discord profile. Needs the Discord app running on this computer, "
+                "and the Application ID of an application you create at discord.com/developers/applications. "
+                "Discord shows the application's name after \u201cPlaying\u201d, so naming it MapleStory works well.")
+        ttk.Checkbutton(dc, text="Show on my Discord profile", variable=bvar("discord_presence")).grid(row=9, column=0, sticky="w", pady=3, columnspan=4)
+        af = tk.Frame(dc, bg=BG); af.grid(row=10, column=0, columnspan=4, sticky="w", pady=3)
+        ttk.Label(af, text="Application ID").pack(side="left")
+        ttk.Entry(af, textvariable=svar("discord_app_id"), width=24).pack(side="left", padx=(10, 0))
+        ttk.Label(dc, textvariable=pr_status, style="Hint.TLabel").grid(row=11, column=0, columnspan=4, sticky="w", pady=(4, 0))
+        self.discord_labels = (wh_status, pr_status); self.update_discord()
+
         sw.bind("<Destroy>", lambda e: self.root.after(30, self.fix_stack) if e.widget is sw else None)
         foot = tk.Frame(sw, bg=BG); foot.pack(fill="x", padx=14, pady=(0, 12))
         tk.Label(foot, text="Changes apply instantly and are saved automatically.", bg=BG, fg=DIM, font=(FONT, 9)).pack(side="left")
@@ -853,12 +1008,104 @@ class App:
         self.move(self.S["x"], self.S["y"]); self.save()
 
     def restore_defaults(self):
-        keep = {k: self.S[k] for k in ("name", "x", "y")}
+        keep = {k: self.S[k] for k in ("name", "x", "y", "discord_webhook", "discord_app_id")}
         self.S.clear(); self.S.update(DEFAULTS); self.S.update(keep)
         for k in ("rate_minutes", "rate_on", "rate_kind"): self.S[k] = list(DEFAULTS[k])
         self.resize(); self.apply()
         if self.sw is not None: self.sw.destroy(); self.sw = None
         self.open_settings()
+
+    # ---- Discord
+    def webhook(self, payload, wait=False, test=False):
+        """Send a message to the channel webhook, in the background (or right away, when quitting)."""
+        url = self.S["discord_webhook"]
+        def go():
+            err = post_webhook(url, payload)
+            self.q.put(("discord", f"Couldn't post: {err}." if err else
+                        "Test message sent." if test else f"Last post: {time.strftime('%H:%M')}"))
+        if wait: go()
+        else: threading.Thread(target=go, daemon=True).start()
+
+    def embed(self, title, fields):
+        return {"username": "MapleReader", "embeds": [{
+            "title": title, "color": int(self.acc[1:], 16),
+            "fields": [{"name": k, "value": v, "inline": True} for k, v in fields]}]}
+
+    def webhook_test(self):
+        self.webhook_status = "Sending\u2026"; self.update_discord()
+        self.webhook(self.embed("MapleReader is connected \u2714",
+                                [("Character", self.S["name"]), ("Posts", ", ".join(
+                                    [t for k, t in (("discord_levelups", "level-ups"), ("discord_sessions", "session summaries"))
+                                     if self.S[k]]) or "none (turned off)")]), test=True)
+
+    def on_level_up(self, lvl):
+        name = self.S["name"]
+        if lvl <= self.announced.get(name, 0):        # already posted (e.g. a misread level came back)
+            return
+        self.announced[name] = lvl
+        if self.demo or not (self.S["discord_levelups"] and self.S["discord_webhook"]):
+            return
+        tr, now = self.tracker, time.time()
+        r = tr.rate(now, 900) or tr.rate(now, 10 ** 9)
+        fields = [("Session", fmt_dur(now - tr.t0)), ("EXP gained", fmt_signed(tr.cum_exp, "~" if tr.approx else ""))]
+        if r: fields.append(("EXP/h", fmt_num(r[0])))
+        self.webhook(self.embed(f"{name} reached level {lvl}! \U0001F389", fields))
+
+    def end_session(self, wait=False):
+        """Post a summary of the session that is about to end, if it's long enough and wanted."""
+        tr, now = self.tracker, time.time()
+        if (self.demo or not (self.S["discord_sessions"] and self.S["discord_webhook"])
+                or tr.t_first is None or now - tr.t_first < SUMMARY_MIN):
+            return
+        ap = "~" if tr.approx else ""
+        r = tr.rate(now, 10 ** 9)
+        (l0, _, _), (l1, _, p1) = tr.first, tr.last
+        self.webhook(self.embed(f"{self.S['name']}\u2019s session", [
+            ("Time", fmt_dur(now - tr.t0)),
+            ("EXP gained", fmt_signed(tr.cum_exp, ap)),
+            ("Average EXP/h", ap + fmt_num(r[0]) if r else "\u2014"),
+            ("Level", f"{l0} \u2192 {l1} ({fmt_pct(p1)})" if l1 != l0 else f"{l1} ({fmt_pct(p1)})"),
+            ("Level progress", ("+" if tr.cum_pct >= 0 else "\u2212") + fmt_pct(abs(tr.cum_pct))),
+            ("Kills", fmt_num(tr.gains(tr.t0))),
+        ]), wait=wait)
+
+    def presence_activity(self, now):
+        """What Discord shows on the profile, or None (nothing read for a minute: game probably closed)."""
+        if self.cur is None or now - self.last_ok > 60:
+            return None
+        tr = self.tracker
+        lvl, _, pct = self.cur
+        act = {"details": f"Lv {lvl} \u00b7 {fmt_pct(pct)}"}
+        if tr.t0 is not None:
+            act["timestamps"] = {"start": int(tr.t0 * 1000)}   # ms; Discord counts the time up from here
+        r = tr.rate(now, 900) or tr.rate(now, 10 ** 9)
+        if self.paused:
+            act["state"] = "Paused"
+        elif r and r[0] > 0:
+            act["state"] = f"{fmt_short(r[0])} EXP/h"
+            if r[1] > 0:
+                m = int((100 - pct) / r[1] * 60)
+                act["state"] += f" \u00b7 level in {m // 60}h {m % 60:02d}m" if m < 6000 else ""
+        else:
+            act["state"] = "Starting a session"
+        return act
+
+    def update_discord(self):
+        now = time.time()
+        if self.paused or self.status == "ok": self.last_ok = now
+        S = self.S
+        on = S["discord_presence"] and S["discord_app_id"].isdigit()
+        self.presence.set(S["discord_app_id"] if on else None, self.presence_activity(now) if on else None)
+        if self.discord_labels and self.sw is not None and self.sw.winfo_exists():
+            wh, pr = self.discord_labels
+            wh.set(self.webhook_status)
+            st = self.presence.status
+            pr.set("Off." if not S["discord_presence"] else
+                   "Paste your Application ID above (it's a long number)." if not on else
+                   "Connecting\u2026" if st == "off" else
+                   ("Connected. " + ("Showing your level." if self.presence.activity else
+                                     "Nothing to show until the status bar is read.")) if st == "connected" else
+                   f"Not connected: {st}.")
 
     # ---- drawing
     def txt(self, x, y, text, size, color, bold=False, anchor="center", tags="dyn"):
@@ -1113,12 +1360,15 @@ class App:
                 msg = self.q.get_nowait()
                 if msg[0] == "error":
                     self.status, self.hint = "bad", "capture error"; continue
+                if msg[0] == "discord":
+                    self.webhook_status = msg[1]; continue
                 if msg[0] == "name":
                     if msg[1] != self.S["name"]:
                         import difflib
                         if (self.S["reset_on_char"] and self.name_seen and
                                 difflib.SequenceMatcher(None, msg[1].lower(), self.S["name"].lower()).ratio() < 0.6):
-                            self.tracker.reset()          # a different character, not just an OCR wobble
+                            self.end_session()            # a different character, not just an OCR wobble
+                            self.tracker.reset()
                         self.S["name"] = msg[1]; self.save()
                     self.name_seen = True
                     continue
@@ -1137,11 +1387,15 @@ class App:
                     if self.fails >= 5: self.status, self.hint = "bad", "can't read status bar"
                     continue
                 self.fails, self.status, self.hint, self.cur = 0, "ok", "", (lvl, exp, pct)
+                before = self.tracker.last
                 if self.tracker.feed(t, lvl, exp, pct):
                     self.log_row(t, lvl, exp, pct)
+                    if before and lvl == before[0] + 1 and pct < 50:   # a real level-up starts low
+                        self.on_level_up(lvl)
         except queue.Empty:
             pass
         if self.paused: self.status = "paused"
+        self.update_discord()
         self.fix_stack()
         self.redraw()
         self.root.after(250, self.poll)
