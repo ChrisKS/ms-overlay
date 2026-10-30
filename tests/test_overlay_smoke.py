@@ -190,3 +190,44 @@ def test_placing_at_corners_and_centre(overlay, monkeypatch):
     ov.place("tl"); ov.toggle_graph()                                # (straight away: no Tk update between)
     assert at() == (E, E)                                            # elsewhere: grows downwards as before
     assert settings.load(paths.data_file("maple_settings.json"))["x"] == E    # the new spot was saved
+
+
+def test_dragging_the_right_edge_resizes(overlay):
+    ov = overlay
+    ov.move(100, 100); ov.root.update()
+    x_edge = ov.W - 3
+    ov.cv.event_generate("<Motion>", x=x_edge, y=60); ov.root.update()
+    assert ov.cv.cget("cursor") == "sb_h_double_arrow"
+    ov.cv.event_generate("<ButtonPress-1>", x=x_edge, y=60, rootx=100 + x_edge, rooty=160)
+    ov.cv.event_generate("<B1-Motion>", x=x_edge - 200, y=60, rootx=100 + x_edge - 200, rooty=160)
+    ov.cv.event_generate("<ButtonRelease-1>", x=x_edge - 200, y=60, rootx=100 + x_edge - 200, rooty=160)
+    ov.root.update()
+    assert ov.W == 580 - 200 and ov.pos == (100, 100)               # narrower, left edge kept
+    assert settings.load(paths.data_file("maple_settings.json"))["width"] == 380
+    ov.set_width(10); assert ov.W == settings.WIDTH_MIN             # kept within limits
+    ov.set_width(10 ** 5); assert ov.W == settings.WIDTH_MAX
+    ov.S["lock_position"] = True                                    # locked: no resizing
+    ov.cv.event_generate("<Motion>", x=ov.W - 3, y=60); ov.root.update()
+    assert ov.cv.cget("cursor") == ""
+
+
+def test_a_narrow_overlay_fits_everything(overlay):
+    ov = overlay
+    t = time.time() - 900
+    for i in range(61):
+        feed(ov, t + i * 15, 40, 1_000_000 + i * 999_999, round((1_000_000 + i * 999_999) / 9e9 * 100, 2))
+    ov.S.update(graph=True, name="AVeryLongCharacterName"); ov.resize()
+    ov.updates.available = ("v9.9.9", "https://github.com/ChrisKS/ms-overlay/releases/tag/v9.9.9")
+    for w in (settings.WIDTH_MIN, 380, 580):
+        ov.set_width(w); ov.root.update()
+        cv = ov.cv
+        texts = [i for i in cv.find_withtag("dyn") if cv.type(i) == "text" and cv.itemcget(i, "fill") != "#000000"]
+        inside = all(0 <= cv.bbox(i)[0] and cv.bbox(i)[2] <= ov.W for i in texts)
+        assert inside, w                                            # nothing sticks out of the overlay
+        header = sorted((cv.bbox(i) for i in texts if cv.bbox(i)[1] < 45), key=lambda b: b[0])
+        assert all(a[2] <= b[0] for a, b in zip(header, header[1:])), w   # header items don't overlap
+        values = sorted((cv.bbox(i) for i in texts if 80 < cv.bbox(i)[1] < 105), key=lambda b: b[0])
+        assert all(a[2] <= b[0] for a, b in zip(values, values[1:])), w   # column values don't overlap
+        row = [cv.bbox(i) for i in texts if ov.H < cv.bbox(i)[1] < ov.H + 25]          # graph header line
+        pills = [cv.bbox(i) for i in cv.find_withtag("mode_rate")]
+        assert all(b[2] <= min(p[0] for p in pills) for b in row if b[0] < min(p[0] for p in pills)), w

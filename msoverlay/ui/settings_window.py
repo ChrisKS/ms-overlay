@@ -252,8 +252,12 @@ class SettingsWindow:
         }.items():
             ttk.Button(grid, text=text, width=20, command=lambda w=where: self.ov.place(w)).grid(row=r, column=c, padx=3, pady=3)
         self.hint(p, 3, "Top centre is where the overlay starts. At the bottom of a screen, opening the graph grows the overlay upwards.", pady=(6, 0))
-        self.head(p, "Dragging", 4)
-        self.check(p, 5, "Lock position (disable dragging)", "lock_position")
+        self.head(p, "Size", 4)
+        self.hint(p, 5, "Drag the overlay's right edge to make it narrower or wider, for example to fit a single column. "
+                        "On a narrow overlay, what doesn't fit (like the % next to the level) is left out.", wrap=520, pady=(0, 6))
+        ttk.Button(p, text="Reset width", command=lambda: self.ov.set_width(DEFAULTS["width"]) or self.ov.save()).grid(row=6, column=0, sticky="w")
+        self.head(p, "Dragging", 7)
+        self.check(p, 8, "Lock position and size (disable dragging)", "lock_position")
 
     def _rates(self):
         r = self.page("Rates")

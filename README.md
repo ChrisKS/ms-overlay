@@ -134,7 +134,8 @@ Click the small chevron (`▾` / `▴`) at the bottom to open or close the graph
 
 | Action | Result |
 |---|---|
-| Left-drag | Move the overlay (unless *Lock position* is on). The position is saved. |
+| Left-drag | Move the overlay (unless *Lock position and size* is on). The position is saved. |
+| Drag the right edge | Make the overlay narrower or wider (the cursor shows a resize arrow there). The width is saved. |
 | Click `▾` / `▴` | Show or hide the graph. |
 | Click `EXP` / `%` / `EXP/H` | Switch what the graph plots. |
 | Click `Update … available` | Open the new release's download page. |
@@ -379,7 +380,16 @@ the overlay starts the first time.
 When the overlay is at the bottom of a screen, opening the graph grows it upwards instead of
 off the screen, and closing it shrinks it back down.
 
-**Lock position** (off by default) turns off dragging; the buttons still work.
+**Size:** drag the overlay's right edge to make it narrower or wider, between 240 and 1200
+pixels (normally 580), for example to fit a single column. **Reset width** goes back to 580.
+On a narrow overlay, what doesn't fit is shortened or left out rather than overlapping: a long
+name gets "…", the % next to the level and the hint or update notice disappear (the progress
+line still shows the %), column headers lose their minutes, values shrink and then switch to
+shorter forms (`10,39M`, then `10M`; `3:05:34`, then `3h`), and the graph shows less of its
+summary line, fewer time labels and a shorter legend.
+
+**Lock position and size** (off by default) turns off dragging and resizing; the buttons still
+work.
 
 ### Rates
 
