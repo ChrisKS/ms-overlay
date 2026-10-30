@@ -300,7 +300,7 @@ Rich Presence shows what you're doing on your Discord profile and in the member 
 ```
 Playing ms-overlay
 Lv 143 · 0,31%
-EXP/H 7,64M · LEVEL IN 5:12:00
+EXP +66.180 · EXP/H 6.012
 00:42:17 elapsed
 ```
 

@@ -22,6 +22,7 @@ def test_num(style, n, out):
 
 def test_short_and_pct_follow_the_decimal_mark():
     assert fmt.short(1_250_000) == "1,25M" and fmt.short(850_000) == "850k" and fmt.short(0) == "0"
+    assert fmt.short(2500) == "2.500" and fmt.short(-6012) == "-6.012"     # small: whole, with separators
     assert fmt.pct(12.5) == "12,50%"
     fmt.set_style("en")
     assert fmt.short(1_250_000) == "1.25M" and fmt.pct(12.5, 1) == "12.5%"

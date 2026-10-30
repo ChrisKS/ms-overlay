@@ -91,7 +91,7 @@ def test_presence_activity():
     fmt.set_style("da")
     ses = a_session()
     act = discord.presence_activity(ses, time.time())
-    assert act["details"] == "Lv 142 · 97,50%" and act["state"].startswith("EXP/H 6M · LEVEL IN ")
+    assert act["details"] == "Lv 142 · 97,50%" and re.fullmatch(r"EXP/H (6\.000\.000|5\.999\.999) · LEVEL IN [\d:]+", act["state"])
     assert act["timestamps"]["start"] == int(ses.tracker.t0 * 1000)
     act = discord.presence_activity(ses, time.time(), [(300, "kills"), (0, "pct_gain")])   # chosen columns
     assert act["state"] == "KILLS 20 · % GAINED +2,44%"      # (the first gain only starts the clock)
