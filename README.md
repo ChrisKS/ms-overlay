@@ -281,7 +281,7 @@ message** attaches a screenshot too, so you can check what would be shared.
 Rich Presence shows what you're doing on your Discord profile and in the member list:
 
 ```
-Playing ms-overlay
+Playing MapleStory
 Lv 143 · 0,31%
 7,64M EXP/h · level in 5h 12m
 00:42:17 elapsed
@@ -292,7 +292,7 @@ status line below it says whether it's connected. It talks to the Discord deskto
 on the same computer, so Discord must be open.
 
 Discord shows the name of a Discord *application* after "Playing". MapleReader has its own
-application built in, like games do, so profiles show its name (currently *ms-overlay*; the
+application built in, like games do, so profiles show its name (currently *MapleStory*; the
 name is set in Discord's developer portal, not in MapleReader). To show a different name, create your own application at
 [discord.com/developers/applications](https://discord.com/developers/applications) (**New
 Application**, named what you want shown), copy its **Application ID** from the *General
