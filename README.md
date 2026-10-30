@@ -300,7 +300,7 @@ Rich Presence shows what you're doing on your Discord profile and in the member 
 ```
 Playing ms-overlay
 Lv 143 · 0,31%
-7,64M EXP/h · level in 5h 12m
+EXP/H 7,64M · LEVEL IN 5:12:00
 00:42:17 elapsed
 ```
 
@@ -318,9 +318,14 @@ ms-overlay's.
 
 Details:
 
-- The EXP/h is from the last 15 minutes, or the whole session if it's shorter. The time
-  counts up from the start of the session, leaving out paused time. While paused it shows
-  *Paused* without a timer.
+- The first line shows your level and %. The second line shows up to two items you choose,
+  with the same options as the [rate columns](#rate-columns): what each shows (EXP per hour,
+  time to level, kills, …) and how many minutes it covers. By default it's EXP/h and time to
+  level, both over the last 15 minutes. Turn both items off to show only the first line.
+  Items without enough data yet are left out; with none to show, it says *Starting a
+  session*.
+- The time counts up from the start of the session, leaving out paused time. While paused it
+  shows *Paused* without a timer.
 - If the status bar hasn't been read for a minute (the game is closed, for example), the status
   is cleared until it's read again.
 - Discord accepts at most one update every 15 seconds, so the numbers lag a little.
@@ -423,6 +428,7 @@ transparent windows stacked together, so each one can fade on its own.
 | Attach a screenshot of the game to level-up posts | Off | See [Screenshots with level-ups](#screenshots-with-level-ups). |
 | Post a summary when a session ends | Off | Only once a webhook URL is set, and only for sessions of 5+ minutes. |
 | Show on my Discord profile | Off | See [Profile status](#profile-status-rich-presence). |
+| Item 1, Item 2 | On, 15 minutes, EXP per hour / Time to next level | What the second line of your Discord status shows, like the rate columns. |
 | Own Application ID | Empty | Optional: your own Discord application, to show another name after "Playing". Empty uses ms-overlay's. |
 
 ---

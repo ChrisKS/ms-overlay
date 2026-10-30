@@ -299,7 +299,7 @@ class Overlay:
 
         # rate columns
         now = ses.clock()
-        cols = [(m * 60, k) for m, k, on in zip(S["rate_minutes"], S["rate_kind"], S["rate_on"]) if on]
+        cols = settings.enabled_columns(S, "rate")
         cw = (W - 44) / len(cols)
         for i, (win, kind) in enumerate(cols):
             cx = 22 + cw * (i + 0.5)

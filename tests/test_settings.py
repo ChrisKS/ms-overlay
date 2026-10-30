@@ -48,3 +48,15 @@ def test_restore_defaults_keeps_identity_and_connections():
     settings.restore_defaults(s)
     assert (s["name"], s["x"], s["y"], s["discord_webhook"], s["discord_app_id"]) == ("Mapler", 1, 2, "w", "1")
     assert s["accent"] == settings.DEFAULTS["accent"] and s["graph"] is False
+
+
+def test_column_slot_sets_are_validated_alike():
+    s = settings.sanitize(dict(settings.defaults(), presence_on=[False, False], presence_minutes=[5],
+                               presence_kind=["nope", "kills"]))
+    assert s["presence_on"] == [False, False]                    # the presence line may show nothing...
+    assert s["presence_minutes"] == [15, 15]                     # ...a malformed list gets the defaults
+    assert s["presence_kind"] == ["exp_h", "kills"]
+    s = settings.sanitize(dict(settings.defaults(), rate_on=[False] * 4))
+    assert s["rate_on"][0]                                       # ...but the overlay keeps a column
+    assert settings.enabled_columns(settings.defaults(), "rate") == [(300, "exp_h"), (900, "exp_h"), (1800, "exp_h"), (3600, "exp_h")]
+    assert settings.enabled_columns(settings.defaults(), "presence") == [(900, "exp_h"), (900, "eta")]

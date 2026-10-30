@@ -11,7 +11,9 @@ import time
 import uuid
 
 from . import fmt, gamewindow
-from .tracker import WHOLE, eta_seconds
+from .settings import enabled_columns
+from .tracker import RECENT, WHOLE
+from .ui import columns
 
 USER_AGENT = "ms-overlay (https://github.com/ChrisKS/ms-overlay)"
 WEBHOOK_RE = re.compile(r"https://(?:(?:ptb|canary)\.)?discord(?:app)?\.com/api/webhooks/\d+/[\w-]+")
@@ -188,9 +190,10 @@ def session_summary(name, session, color):
     ], color)
 
 
-def presence_activity(session, now):
+def presence_activity(session, now, cols=((RECENT, "exp_h"), (RECENT, "eta"))):
     """What Discord shows on the profile at wall time `now`, or None (nothing read for a while: the
-    game is probably closed)."""
+    game is probably closed). The second line shows `cols`, [(window, kind)] as for the overlay's
+    rate columns."""
     if session.cur is None or not session.recently_read(now):
         return None
     tr, sn = session.tracker, session.clock(now)
@@ -198,16 +201,10 @@ def presence_activity(session, now):
     act = {"details": f"Lv {lvl} \u00b7 {fmt.pct(pct)}"}
     if tr.t0 is not None and not session.paused:   # Discord counts up from this wall time (ms);
         act["timestamps"] = {"start": int((tr.t0 + session.paused_total) * 1000)}   # pauses shift it
-    r = tr.recent_rate(sn)
     if session.paused:
         act["state"] = "Paused"
-    elif r and r[0] > 0:
-        act["state"] = f"{fmt.short(r[0])} EXP/h"
-        eta = eta_seconds(pct, r[1])
-        if eta is not None and eta < 100 * 3600:
-            act["state"] += f" \u00b7 level in {fmt.hours_minutes(eta)}"
-    else:
-        act["state"] = "Starting a session"
+    elif cols:                                   # no columns chosen: no second line
+        act["state"] = columns.line(tr, cols, sn, pct)[:128] or "Starting a session"
     return act
 
 
@@ -279,7 +276,7 @@ class DiscordLink:
     def update_presence(self, session, now):
         on = self.presence_on()
         self.presence.set(self.app_id() if on else None,
-                          presence_activity(session, now) if on else None)
+                          presence_activity(session, now, enabled_columns(self.S, "presence")) if on else None)
 
     def presence_status(self):
         """One line for the settings window."""

@@ -153,3 +153,14 @@ def test_text_and_accent_offer_the_same_colours_plus_a_custom_one(overlay, monke
     assert ov.S["accent"] == "#c0ffee"
     assert set(ov.settings_win.custom_dots) == {"text_color", "accent"}
     assert len(COLORS) == len({c for _, c in COLORS}) and ("White", "#ffffff") in COLORS
+
+
+def test_rates_and_discord_tabs_share_the_column_slot_rows(overlay):
+    ov = overlay
+    ov.open_settings()
+    sw = ov.settings_win
+    def checks(tab):
+        f = sw.nb.nametowidget(sw.nb.tabs()[tab])
+        return [w.cget("text") for w in f.winfo_children() if w.winfo_class() == "TCheckbutton"]
+    assert [t for t in checks(1) if t.startswith("Column")] == ["Column 1", "Column 2", "Column 3", "Column 4"]
+    assert [t for t in checks(5) if t.startswith("Item")] == ["Item 1", "Item 2"]

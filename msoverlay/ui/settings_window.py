@@ -3,7 +3,8 @@ overlay.apply(), so changes show at once and are saved automatically."""
 import tkinter as tk
 from tkinter import ttk
 
-from ..settings import COLORS, DEFAULTS, FONT_SCALES, GRAPH_MODES, GRAPH_STYLES, KINDS, NUMBER_FORMATS
+from ..settings import (COLORS, COLUMN_SETS, DEFAULTS, FONT_SCALES, GRAPH_MODES, GRAPH_STYLES, KINDS,
+                        NUMBER_FORMATS)
 from ..updates import parse
 from ..version import VERSION
 from .theme import BG, BORDER, BUTTON, BUTTON_HOVER, DIM, FG, FIELD, FONT, SLIDER, TAB
@@ -25,6 +26,7 @@ class SettingsWindow:
         self.webhook_status, self.presence_status = tk.StringVar(), tk.StringVar()
         self.update_status = tk.StringVar(value=overlay.updates.status)
         self.custom_dots = {}                            # settings key -> opens its colour picker
+        self.keep = []                                   # Tk variables that must outlive their builder
         for build in (self._general, self._rates, self._appearance, self._graph, self._data, self._discord):
             build()
         w.bind("<Destroy>", lambda e: root.after(30, overlay.fix_stack) if e.widget is w else None)
@@ -214,28 +216,35 @@ class SettingsWindow:
         self.hint(g, 11, f"Asks GitHub every few hours for the latest release; nothing is downloaded. {this}")
         ttk.Label(g, textvariable=self.update_status, style="Hint.TLabel", wraplength=400, justify="left").grid(row=12, column=0, columnspan=4, sticky="w", pady=(4, 0))
 
-    def _rates(self):
-        r, S = self.page("Rates"), self.S
-        self.hint(r, 0, "Choose which columns are shown, what each one displays, and how many minutes it covers.", pady=(0, 10))
-        self.rate_vars = []
+    def column_slots(self, f, first_row, prefix, label):
+        """One row per slot of a set of columns (settings.COLUMN_SETS): on/off, minutes, what it
+        shows. Used for the overlay's rate columns and for the Discord presence line."""
+        S = self.S
         descriptions = {k: d for k, (_, d) in KINDS.items()}
-        for i in range(4):
-            on = tk.BooleanVar(value=S["rate_on"][i]); mn = tk.IntVar(value=S["rate_minutes"][i])
+        on_l, min_l, kind_l = S[f"{prefix}_on"], S[f"{prefix}_minutes"], S[f"{prefix}_kind"]
+        for i in range(COLUMN_SETS[prefix][0]):
+            row = first_row + i
+            on = tk.BooleanVar(value=on_l[i]); mn = tk.IntVar(value=min_l[i])
+            kv = tk.StringVar(value=descriptions[kind_l[i]])
             def cb(*_, i=i, on=on, mn=mn):
-                S["rate_on"][i] = on.get()
-                try: S["rate_minutes"][i] = min(max(int(mn.get()), 0), 720)
+                on_l[i] = on.get()
+                try: min_l[i] = min(max(int(mn.get()), 0), 720)
                 except (tk.TclError, ValueError): return
                 self._changed()
-            kv = tk.StringVar(value=descriptions[S["rate_kind"][i]])
             def kcb(*_, i=i, kv=kv):
-                S["rate_kind"][i] = next(k for k, d in descriptions.items() if d == kv.get()); self._changed()
-            kv.trace_add("write", kcb)
-            on.trace_add("write", cb); mn.trace_add("write", cb); self.rate_vars += [on, mn, kv]
-            ttk.Combobox(r, state="readonly", width=34, textvariable=kv,
-                         values=list(descriptions.values())).grid(row=i + 1, column=3, padx=(14, 0))
-            ttk.Checkbutton(r, text=f"Column {i + 1}", variable=on).grid(row=i + 1, column=0, sticky="w", pady=5)
-            ttk.Spinbox(r, from_=0, to=720, width=6, textvariable=mn).grid(row=i + 1, column=1, padx=(14, 6))
-            ttk.Label(r, text="minutes").grid(row=i + 1, column=2, sticky="w")
+                kind_l[i] = next(k for k, d in descriptions.items() if d == kv.get()); self._changed()
+            on.trace_add("write", cb); mn.trace_add("write", cb); kv.trace_add("write", kcb)
+            self.keep += [on, mn, kv]                    # Tk variables die with their last reference
+            ttk.Checkbutton(f, text=f"{label} {i + 1}", variable=on).grid(row=row, column=0, sticky="w", pady=5)
+            ttk.Spinbox(f, from_=0, to=720, width=6, textvariable=mn).grid(row=row, column=1, padx=(14, 6))
+            ttk.Label(f, text="minutes").grid(row=row, column=2, sticky="w")
+            ttk.Combobox(f, state="readonly", width=34, textvariable=kv,
+                         values=list(descriptions.values())).grid(row=row, column=3, padx=(14, 0))
+
+    def _rates(self):
+        r = self.page("Rates")
+        self.hint(r, 0, "Choose which columns are shown, what each one displays, and how many minutes it covers.", pady=(0, 10))
+        self.column_slots(r, 1, "rate", "Column")
         self.check(r, 6, "Dim the numbers until the window has filled up", "rate_dim", pady=(14, 0))
         self.hint(r, 7, "A dimmed number is based on less data than its header says (less time than the window covers since your first EXP gain). Headers are never dimmed. Set minutes to 0 to cover the whole session (since your first EXP gain; nothing is kept between runs).", wrap=560)
 
@@ -304,8 +313,10 @@ class SettingsWindow:
                   wrap=470, pady=(0, 4))
         self.check(dc, 11, "Show on my Discord profile", "discord_presence")
         ttk.Label(dc, textvariable=self.presence_status, style="Hint.TLabel").grid(row=12, column=0, columnspan=4, sticky="w", pady=(0, 4))
-        af = self.row_frame(dc, 13, pady=(8, 0))
+        self.hint(dc, 13, "The first line shows your level and %. The second shows these, like the rate columns:", wrap=470)
+        self.column_slots(dc, 14, "presence", "Item")
+        af = self.row_frame(dc, 16, pady=(8, 0))
         ttk.Label(af, text="Own Application ID").pack(side="left")
         ttk.Entry(af, textvariable=self.svar("discord_app_id"), width=24).pack(side="left", padx=(10, 0))
-        self.hint(dc, 14, "Optional. Leave empty to use ms-overlay\u2019s own application. To show another name after \u201cPlaying\u201d, "
+        self.hint(dc, 17, "Optional. Leave empty to use ms-overlay\u2019s own application. To show another name after \u201cPlaying\u201d, "
                           "create an application at discord.com/developers/applications and paste its Application ID.", wrap=470)

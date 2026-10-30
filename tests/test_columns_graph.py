@@ -61,3 +61,10 @@ def test_summary_line(session_tracker):
 def test_nice_ticks():
     assert graph.nice_ticks(0, 100) == [0, 25, 50, 75, 100]
     assert graph.nice_ticks(0, 3.4e7)[:3] == [0, 1e7, 2e7]
+
+
+def test_line_joins_columns_with_compact_numbers(session_tracker):
+    tr, now = session_tracker
+    assert columns.line(tr, [(300, "exp_h"), (300, "kills"), (0, "exp_gain")], now) == \
+        "EXP/H 3,6M \u00b7 KILLS 30 \u00b7 EXP +1,19M"
+    assert columns.line(Tracker(), [(300, "exp_h")], now) == ""          # no data yet: left out
