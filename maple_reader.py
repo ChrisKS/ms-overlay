@@ -210,6 +210,7 @@ class Tracker:
         self.cum_exp = 0; self.cum_pct = 0.0
         self.req = {}               # level -> (best_pct, estimated EXP needed)
         self.approx = False         # True if a level-up had to be estimated
+        self.skip = False           # next reading is a new starting point, not a gain (after a pause)
 
     def _learn_req(self, lvl, exp, pct):
         if pct >= 1.0 and pct > self.req.get(lvl, (0, 0))[0]:
@@ -222,7 +223,15 @@ class Tracker:
         reading = (lvl, exp, pct)
         confirmed = (reading == self.cand)   # must be seen twice in a row (OCR glitches)
         self.cand = reading
-        if not confirmed or reading == self.last:
+        if not confirmed:
+            return False
+        if self.skip:                              # whatever changed while paused isn't counted
+            self.skip = False
+            if self.last is not None:              # (a session that hasn't started has nothing to skip)
+                self._learn_req(lvl, exp, pct)
+                changed, self.last = reading != self.last, reading
+                return changed
+        if reading == self.last:
             return False
         self._learn_req(lvl, exp, pct)
         if self.last is None:
@@ -247,6 +256,11 @@ class Tracker:
         if self.t_first is None and (d != 0):
             self.t_first = t
         return True
+
+    def skip_gap(self):
+        """Called on resume: the next reading becomes the new starting point, so EXP gained (or a
+        level reached) while the reader was paused doesn't count towards the session."""
+        self.cand, self.skip = None, True
 
     def value_at(self, t, idx):
         v = 0
@@ -592,6 +606,8 @@ class App:
         self.tracker = Tracker()
         self.q = queue.Queue()
         self.paused, self.fails, self.status = False, 0, "wait"
+        self.pause_t = None         # wall time the current pause started
+        self.paused_total = 0.0     # seconds spent paused so far: cut out of the session clock
         self.cur = None             # last good (level, exp, pct)
         self.hint = ""
         self.loc = None             # where the status bar is on screen (set by the reader thread)
@@ -756,8 +772,21 @@ class App:
     def toggle_graph(self):
         self.S["graph"] = not self.S["graph"]; self.resize(); self.redraw(); self.save()
 
+    def clock(self, t=None):
+        """Wall time -> session time, which stands still while paused. The tracker only ever sees
+        session time, so paused time is left out of every rate, window and duration."""
+        t = time.time() if t is None else t
+        if self.pause_t is not None: t = min(t, self.pause_t)
+        return t - self.paused_total
+
     def toggle_pause(self):
-        self.paused = not self.paused; self.status = "paused" if self.paused else "wait"; self.redraw()
+        self.paused = not self.paused
+        if self.paused:
+            self.pause_t = time.time()
+        else:
+            self.paused_total += time.time() - self.pause_t; self.pause_t = None
+            self.tracker.skip_gap()
+        self.status = "paused" if self.paused else "wait"; self.redraw()
 
     def reset(self):
         self.end_session(); self.tracker.reset(); self.redraw()
@@ -1045,7 +1074,7 @@ class App:
         self.announced[name] = lvl
         if self.demo or not (self.S["discord_levelups"] and self.S["discord_webhook"]):
             return
-        tr, now = self.tracker, time.time()
+        tr, now = self.tracker, self.clock()
         r = tr.rate(now, 900) or tr.rate(now, 10 ** 9)
         fields = [("Session", fmt_dur(now - tr.t0)), ("EXP gained", fmt_signed(tr.cum_exp, "~" if tr.approx else ""))]
         if r: fields.append(("EXP/h", fmt_num(r[0])))
@@ -1053,7 +1082,7 @@ class App:
 
     def end_session(self, wait=False):
         """Post a summary of the session that is about to end, if it's long enough and wanted."""
-        tr, now = self.tracker, time.time()
+        tr, now = self.tracker, self.clock()
         if (self.demo or not (self.S["discord_sessions"] and self.S["discord_webhook"])
                 or tr.t_first is None or now - tr.t_first < SUMMARY_MIN):
             return
@@ -1073,12 +1102,12 @@ class App:
         """What Discord shows on the profile, or None (nothing read for a minute: game probably closed)."""
         if self.cur is None or now - self.last_ok > 60:
             return None
-        tr = self.tracker
+        tr, sn = self.tracker, self.clock(now)
         lvl, _, pct = self.cur
         act = {"details": f"Lv {lvl} \u00b7 {fmt_pct(pct)}"}
-        if tr.t0 is not None:
-            act["timestamps"] = {"start": int(tr.t0 * 1000)}   # ms; Discord counts the time up from here
-        r = tr.rate(now, 900) or tr.rate(now, 10 ** 9)
+        if tr.t0 is not None and not self.paused:   # Discord counts up from this wall time (ms);
+            act["timestamps"] = {"start": int((tr.t0 + self.paused_total) * 1000)}   # pauses shift it
+        r = tr.rate(sn, 900) or tr.rate(sn, 10 ** 9)
         if self.paused:
             act["state"] = "Paused"
         elif r and r[0] > 0:
@@ -1145,7 +1174,7 @@ class App:
             cv.create_line(22, 49, 22 + (W - 44) * pct / 100, 49, fill=self.acc, width=3, capstyle="round", tags="dyn")
 
         # EXP/h columns
-        now = time.time()
+        now = self.clock()
         wins = [m * 60 for m, on in zip(self.S["rate_minutes"], self.S["rate_on"]) if on]
         kinds = [k for k, on in zip(self.S["rate_kind"], self.S["rate_on"]) if on]
         cw = (W - 44) / len(wins)
@@ -1388,7 +1417,7 @@ class App:
                     continue
                 self.fails, self.status, self.hint, self.cur = 0, "ok", "", (lvl, exp, pct)
                 before = self.tracker.last
-                if self.tracker.feed(t, lvl, exp, pct):
+                if self.tracker.feed(self.clock(t), lvl, exp, pct):
                     self.log_row(t, lvl, exp, pct)
                     if before and lvl == before[0] + 1 and pct < 50:   # a real level-up starts low
                         self.on_level_up(lvl)
