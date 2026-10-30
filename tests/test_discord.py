@@ -140,7 +140,11 @@ def test_presence_status_lines():
     link, s, _ = link_for("")
     assert link.presence_status() == "Off."
     s["discord_presence"] = True
-    assert link.presence_status().startswith("Paste your Application ID")
+    assert link.app_id() == discord.APP_ID and link.presence_on()          # works without any setup
+    s["discord_app_id"] = "123"
+    assert link.app_id() == "123"
+    s["discord_app_id"] = "my app"
+    assert not link.presence_on() and link.presence_status().startswith("That Application ID isn't valid")
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="the fake Discord app uses a Unix socket")

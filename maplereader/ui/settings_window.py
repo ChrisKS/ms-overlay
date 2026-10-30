@@ -273,11 +273,12 @@ class SettingsWindow:
         ttk.Button(tf, text="Send test message", command=self.ov.discord_test).pack(side="left")
         ttk.Label(tf, textvariable=self.webhook_status, style="Hint.TLabel", wraplength=330, justify="left").pack(side="left", padx=(10, 0))
         self.head(dc, "Rich Presence", 9)
-        self.hint(dc, 10, "Shows your level, EXP per hour and session time on your Discord profile. Needs the Discord app running on this computer, "
-                          "and the Application ID of an application you create at discord.com/developers/applications. "
-                          "Discord shows the application's name after \u201cPlaying\u201d, so naming it MapleStory works well.", wrap=470, pady=(0, 4))
+        self.hint(dc, 10, "Shows your level, EXP per hour and session time on your Discord profile. Needs the Discord app running on this computer.",
+                  wrap=470, pady=(0, 4))
         self.check(dc, 11, "Show on my Discord profile", "discord_presence")
-        af = self.row_frame(dc, 12)
-        ttk.Label(af, text="Application ID").pack(side="left")
+        ttk.Label(dc, textvariable=self.presence_status, style="Hint.TLabel").grid(row=12, column=0, columnspan=4, sticky="w", pady=(0, 4))
+        af = self.row_frame(dc, 13, pady=(8, 0))
+        ttk.Label(af, text="Own Application ID").pack(side="left")
         ttk.Entry(af, textvariable=self.svar("discord_app_id"), width=24).pack(side="left", padx=(10, 0))
-        ttk.Label(dc, textvariable=self.presence_status, style="Hint.TLabel").grid(row=13, column=0, columnspan=4, sticky="w", pady=(4, 0))
+        self.hint(dc, 14, "Optional. Leave empty to show as MapleReader. To show another name after \u201cPlaying\u201d, "
+                          "create an application at discord.com/developers/applications and paste its Application ID.", wrap=470)
