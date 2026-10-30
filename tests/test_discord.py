@@ -44,9 +44,12 @@ def webhook(monkeypatch):
 
 
 def a_session(minutes=10, lvl=142):
-    """A session that has been running for `minutes` minutes of session time."""
+    """A session that has been running for `minutes` minutes of session time. `ses.now` is the
+    moment of its last reading: evaluate at that time for results that don't depend on how
+    fast the test runs."""
     ses = Session()
-    t0 = ses.clock() - minutes * 60
+    ses.now = time.time()
+    t0 = ses.now - minutes * 60
     exp = 38_000_000
     for i in range(minutes * 4 + 1):
         r = dict(found=True, unknown=False, level=lvl, exp=exp, pct=round(exp / 40e6 * 100, 2))
@@ -90,12 +93,12 @@ def test_messages():
 def test_presence_activity():
     fmt.set_style("da")
     ses = a_session()
-    act = discord.presence_activity(ses, time.time())
-    assert act["details"] == "Lv 142 · 97,50%" and re.fullmatch(r"EXP/H (6\.000\.000|5\.999\.999) · LEVEL IN [\d:]+", act["state"])
+    act = discord.presence_activity(ses, ses.now)
+    assert act["details"] == "Lv 142 · 97,50%" and act["state"].startswith("EXP/H 6.000.000 · LEVEL IN ")
     assert act["timestamps"]["start"] == int(ses.tracker.t0 * 1000)
-    act = discord.presence_activity(ses, time.time(), [(300, "kills"), (0, "pct_gain")])   # chosen columns
+    act = discord.presence_activity(ses, ses.now, [(300, "kills"), (0, "pct_gain")])   # chosen columns
     assert act["state"] == "KILLS 20 · % GAINED +2,44%"      # (the first gain only starts the clock)
-    assert "state" not in discord.presence_activity(ses, time.time(), [])                  # none chosen
+    assert "state" not in discord.presence_activity(ses, ses.now, [])                  # none chosen
     assert discord.presence_activity(Session(), time.time()) is None
     ses.toggle_pause()
     act = discord.presence_activity(ses, time.time())
