@@ -269,6 +269,21 @@ class Tracker:
                 (self.cum_pct - self.value_at(start, 2)) / span * 3600,
                 now - self.t_first >= win or win >= 10 ** 9)
 
+    def rate_series(self, now, win, n=240):
+        """EXP/hour through the session, for the graph: -> (times, rate over the trailing `win`
+        seconds, session average so far), each as rate() would have reported it at that moment.
+        The first minute (or the whole window, if shorter) is left out: a rate from a few kills
+        swings wildly. None until there is something to plot."""
+        first = None if self.t_first is None else self.t_first + min(win, 60)
+        if first is None or now - first < 1:
+            return None
+        ts = np.array([p[0] for p in self.points]); cum = np.array([p[1] for p in self.points], dtype=float)
+        val = lambda t: cum[np.maximum(np.searchsorted(ts, t, side="right") - 1, 0)]
+        g = np.linspace(first, now, n)
+        start = np.maximum(self.t_first, g - win)
+        return (g, (val(g) - val(start)) / (g - start) * 3600,
+                (val(g) - val(self.t_first)) / (g - self.t_first) * 3600)
+
     def gains(self, start):
         """number of EXP gains after time `start`"""
         n, prev = 0, 0
@@ -317,6 +332,7 @@ DEFAULTS = dict(
     graph=False, mode="exp",
     # graph
     graph_style="step", graph_fill=True, graph_width=2, graph_opacity=1.0, fill_opacity=0.25,
+    graph_rate_minutes=5, graph_avg=True,
     # rate columns
     rate_minutes=[5, 15, 30, 60], rate_on=[True, True, True, True],
     rate_kind=["exp_h", "exp_h", "exp_h", "exp_h"], rate_dim=True,
@@ -344,6 +360,8 @@ TEXT_COLORS = [("White", "#ffffff"), ("Soft", "#e3e6ee"), ("Yellow", "#ffe48a"),
                ("Mint", "#bff7d6"), ("Pink", "#ffc7dc")]
 FONT_SCALES = [("Small", 0.9), ("Normal", 1.0), ("Large", 1.15), ("Extra large", 1.3)]
 GRAPH_STYLES = {"step": "Stepped (sharp)", "line": "Straight lines", "smooth": "Smooth curve"}
+# what the graph plots: key -> (button label, settings label), in the order the buttons appear
+GRAPH_MODES = {"exp": ("EXP", "EXP gained"), "pct": ("%", "% gained"), "rate": ("EXP/H", "EXP per hour")}
 NUM_STYLE = "da"
 
 def _num(v, lo, hi, default):
@@ -364,14 +382,15 @@ def sanitize(s):
     s["reads_per_sec"] = int(_num(s.get("reads_per_sec"), 2, 20, 10))
     if s.get("number_format") not in NUMBER_FORMATS: s["number_format"] = "da"
     if not (isinstance(s.get("accent"), str) and re.fullmatch(r"#[0-9a-fA-F]{6}", s["accent"])): s["accent"] = d["accent"]
-    if s.get("mode") not in ("exp", "pct"): s["mode"] = "exp"
+    if s.get("mode") not in GRAPH_MODES: s["mode"] = "exp"
+    s["graph_rate_minutes"] = int(_num(s.get("graph_rate_minutes"), 1, 60, 5))
     if s.get("graph_style") not in GRAPH_STYLES: s["graph_style"] = "step"
     s["graph_opacity"] = _num(s.get("graph_opacity"), 0.0, 1.0, 1.0)
     s["fill_opacity"] = _num(s.get("fill_opacity"), 0.0, 1.0, 0.25)
     s["graph_width"] = int(_num(s.get("graph_width"), 1, 4, 2))
     if not (isinstance(s.get("text_color"), str) and re.fullmatch(r"#[0-9a-fA-F]{6}", s["text_color"])): s["text_color"] = "#ffffff"
     fs = _num(s.get("font_scale"), 0.8, 1.5, 1.0); s["font_scale"] = min((v for _, v in FONT_SCALES), key=lambda v: abs(v - fs))
-    for k in ("topmost", "lock_position", "show_name", "reset_on_char", "graph", "log_csv", "graph_fill", "text_shadow", "rate_dim"):
+    for k in ("topmost", "lock_position", "show_name", "reset_on_char", "graph", "log_csv", "graph_fill", "text_shadow", "rate_dim", "graph_avg"):
         s[k] = bool(s.get(k, d[k]))
     return s
 
@@ -418,6 +437,21 @@ def fmt_num(n):
     else:
         t = f"{a:,}".replace(",", {"da": ".", "en": ",", "space": "\u2009"}.get(NUM_STYLE, "."))
     return ("-" if neg else "") + t
+
+def fmt_short(n):
+    """Compact number for tight spots like axis labels: 850k, 1,25M (decimal mark per number format)."""
+    a = abs(n)
+    if a >= 1e6: t = f"{a / 1e6:.2f}".rstrip("0").rstrip(".") + "M"
+    elif a >= 1e4: t = f"{a / 1e3:.0f}k"
+    else: t = str(int(round(a)))
+    return ("-" if n < 0 else "") + (t.replace(".", ",") if NUM_STYLE == "da" else t)
+
+def blur(y):
+    """Light Gaussian blur for the smooth graph style; keeps both ends where they were."""
+    k = np.exp(-0.5 * (np.arange(-6, 7) / 2.2) ** 2); k /= k.sum()
+    sm = np.convolve(np.pad(np.asarray(y, dtype=float), 6, mode="edge"), k, mode="valid")
+    sm[0], sm[-1] = y[0], y[-1]
+    return sm
 
 def nice_ticks(lo, hi, n=4):
     raw = (hi - lo) / n
@@ -579,8 +613,8 @@ class App:
         self.drag = None
         tags = e.widget.gettags("current")
         if "toggle" in tags: return self.toggle_graph()
-        if "mode_exp" in tags: self.S["mode"] = "exp"; return self.redraw()
-        if "mode_pct" in tags: self.S["mode"] = "pct"; return self.redraw()
+        for k in GRAPH_MODES:
+            if f"mode_{k}" in tags: self.S["mode"] = k; return self.redraw()
         self.fix_stack()
         if not self.S["lock_position"]:
             self.drag = (e.x_root - self.root.winfo_x(), e.y_root - self.root.winfo_y())
@@ -767,20 +801,28 @@ class App:
         gm = tk.StringVar(value=S["mode"])
         def set_mode(*_): S["mode"] = gm.get(); self.apply()
         ttk.Label(gr, text="Plots").grid(row=2, column=0, sticky="w", pady=(6, 3))
-        ttk.Radiobutton(gr, text="EXP gained", variable=gm, value="exp", command=set_mode).grid(row=2, column=1, sticky="w", padx=(10, 0), pady=(6, 3))
-        ttk.Radiobutton(gr, text="% gained", variable=gm, value="pct", command=set_mode).grid(row=2, column=2, sticky="w", padx=(10, 0), pady=(6, 3))
-        head(gr, "Line", 3)
+        for i, (k, (_, label)) in enumerate(GRAPH_MODES.items()):
+            ttk.Radiobutton(gr, text=label, variable=gm, value=k, command=set_mode).grid(row=2, column=1 + i, sticky="w", padx=(10, 0), pady=(6, 3))
+        head(gr, "EXP per hour", 3)
+        ttk.Label(gr, text="Rate over the last").grid(row=4, column=0, sticky="w", pady=3)
+        rw = tk.Frame(gr, bg=BG); rw.grid(row=4, column=1, columnspan=3, sticky="w", padx=(10, 0))
+        ttk.Spinbox(rw, from_=1, to=60, width=5, textvariable=ivar("graph_rate_minutes", 1, 60)).pack(side="left")
+        ttk.Label(rw, text="minutes").pack(side="left", padx=(6, 0))
+        ttk.Checkbutton(gr, text="Also show the session average (dashed line)", variable=bvar("graph_avg")).grid(row=5, column=0, sticky="w", pady=3, columnspan=4)
+        ttk.Label(gr, text="A short window shows every change of pace; a longer one is calmer. Above the dashed line you are beating your session average.",
+                  style="Hint.TLabel", wraplength=400, justify="left").grid(row=6, column=0, columnspan=4, sticky="w")
+        head(gr, "Line", 7)
         gs = tk.StringVar(value=S["graph_style"])
         def set_style(*_): S["graph_style"] = gs.get(); self.apply()
         for i, (k, label) in enumerate(GRAPH_STYLES.items()):
-            ttk.Radiobutton(gr, text=label, variable=gs, value=k, command=set_style).grid(row=4 + i, column=0, columnspan=4, sticky="w", pady=2)
-        ttk.Label(gr, text="Stepped shows exactly when EXP arrived; straight joins the points; smooth averages them out.",
-                  style="Hint.TLabel", wraplength=400, justify="left").grid(row=7, column=0, columnspan=4, sticky="w", pady=(2, 0))
-        slider(gr, 8, "Line thickness", "graph_width", 1, 4, fmt=lambda v: f"{v:.0f}px", scale=1.0)
-        slider(gr, 9, "Line opacity", "graph_opacity", 0, 100)
-        head(gr, "Fill", 10)
-        ttk.Checkbutton(gr, text="Fill the area under the line", variable=bvar("graph_fill")).grid(row=11, column=0, sticky="w", pady=3, columnspan=4)
-        slider(gr, 12, "Fill opacity", "fill_opacity", 0, 100)
+            ttk.Radiobutton(gr, text=label, variable=gs, value=k, command=set_style).grid(row=8 + i, column=0, columnspan=4, sticky="w", pady=2)
+        ttk.Label(gr, text="Stepped shows exactly when EXP arrived; straight joins the points; smooth averages them out. The EXP per hour graph is never stepped.",
+                  style="Hint.TLabel", wraplength=400, justify="left").grid(row=11, column=0, columnspan=4, sticky="w", pady=(2, 0))
+        slider(gr, 12, "Line thickness", "graph_width", 1, 4, fmt=lambda v: f"{v:.0f}px", scale=1.0)
+        slider(gr, 13, "Line opacity", "graph_opacity", 0, 100)
+        head(gr, "Fill", 14)
+        ttk.Checkbutton(gr, text="Fill the area under the line", variable=bvar("graph_fill")).grid(row=15, column=0, sticky="w", pady=3, columnspan=4)
+        slider(gr, 16, "Fill opacity", "fill_opacity", 0, 100)
 
         # ---------- Data
         d = page("Data")
@@ -884,39 +926,42 @@ class App:
         if self.S["graph"]:
             self.draw_graph(22, H + 4, W - 22, total - 16, now)
 
-    def graph_series(self, idx, now):
-        """-> (xs, ys) in seconds / value, shaped according to the graph style."""
+    def graph_series(self, mode, now):
+        """-> (xs, ys, avg) in seconds / value, shaped according to the graph style. avg is the
+        session-average line of the EXP per hour graph (else None). None if there's nothing to plot yet."""
         tr, style = self.tracker, self.S["graph_style"]
         t0 = tr.t0
+        if mode == "rate":                                  # always a line: rates change gradually
+            r = tr.rate_series(now, self.S["graph_rate_minutes"] * 60)
+            if r is None:
+                return None
+            g, ys, avg = r
+            return list(g - t0), list(blur(ys) if style == "smooth" else ys), list(avg)
+        if len(tr.points) < 2:
+            return None
+        idx = 1 if mode == "exp" else 2
         if style == "step":
             xs, ys, prev = [], [], 0
             for p in tr.points:
                 xs += [p[0] - t0, p[0] - t0]; ys += [prev, p[idx]]; prev = p[idx]
-            return xs + [now - t0], ys + [prev]
+            return xs + [now - t0], ys + [prev], None
         px = [p[0] - t0 for p in tr.points] + [now - t0]
         py = [p[idx] for p in tr.points] + [tr.points[-1][idx]]
         if len(px) > 700:                                   # keep the canvas light on long sessions
             k = len(px) // 700 + 1
             px, py = px[::k] + [px[-1]], py[::k] + [py[-1]]
         if style == "line":
-            return px, py
-        # smooth: resample on an even grid and blur lightly (keeps start/end pinned)
-        n = 140
-        gx = np.linspace(px[0], px[-1], n)
-        gy = np.interp(gx, px, py)
-        k = np.exp(-0.5 * (np.arange(-6, 7) / 2.2) ** 2); k /= k.sum()
-        pad = np.pad(gy, 6, mode="edge")
-        sm = np.convolve(pad, k, mode="valid")
-        sm[0], sm[-1] = gy[0], gy[-1]
-        return list(gx), list(sm)
+            return px, py, None
+        # smooth: resample on an even grid and blur lightly
+        gx = np.linspace(px[0], px[-1], 140)
+        return list(gx), list(blur(np.interp(gx, px, py))), None
 
     def draw_graph(self, x1, y1, x2, y2, now):
         cv, tr = self.cv, self.tracker
         fcv, lcv = self.fillcv, self.linecv
         mode = self.S["mode"]
-        idx = 1 if mode == "exp" else 2
         cv.create_line(x1, y1 - 2, x2, y1 - 2, fill=BORDER, width=1, tags="dyn")
-        # header line: session summary + EXP/% switch
+        # header line: session summary + EXP/%/EXP-per-hour switch
         if tr.t0 is not None:
             r = tr.rate(now, 900) or tr.rate(now, 10 ** 9)
             eta = f"  \u00b7  level in {fmt_dur((100 - self.cur[2]) / r[1] * 3600)}" if r and r[1] > 0 and self.cur else ""
@@ -926,29 +971,35 @@ class App:
         else:
             t = "Waiting for data\u2026"
         self.txt(x1, y1 + 14, t, 9, self.c_fg, False, "w")
-        for label, key, dx in (("%", "pct", 0), ("EXP", "exp", 44)):
-            on = mode == key
-            cx = x2 - 14 - dx
-            rrect(cv, cx - 18, y1 + 4, cx + 18, y1 + 24, 9, fill=self.acc_fill if on else BG,
+        bx = x2 - 4                                          # buttons, right to left
+        for key, (label, _) in reversed(GRAPH_MODES.items()):
+            on, w = mode == key, 36 if len(label) < 4 else 50
+            rrect(cv, bx - w, y1 + 4, bx, y1 + 24, 9, fill=self.acc_fill if on else BG,
                   outline=self.acc if on else BORDER, width=1, tags=("dyn", f"mode_{key}"))
-            cv.create_text(cx, y1 + 14, text=label, fill=self.acc if on else self.c_label,
+            cv.create_text(bx - w / 2, y1 + 14, text=label, fill=self.acc if on else self.c_label,
                            font=(FONT, 8, "bold"), tags=("dyn", f"mode_{key}"))
+            bx -= w + 8
 
         # chart
         L, T, R, B = x1 + 46, y1 + 36, x2, y2 - 16
-        if len(tr.points) < 2:
-            self.txt((L + R) / 2, (T + B) / 2, "Gain some EXP to start the graph", 10, self.c_sub)
+        series = self.graph_series(mode, now)
+        if series is None:
+            msg = "Gathering a minute of EXP\u2026" if mode == "rate" and tr.t_first else "Gain some EXP to start the graph"
+            self.txt((L + R) / 2, (T + B) / 2, msg, 10, self.c_sub)
             return
-        xs, ys = self.graph_series(idx, now)
+        xs, ys, avg = series
+        if not self.S["graph_avg"]: avg = None
         xmax = max(xs[-1], 60)
-        ymin, ymax = min(0, min(ys)), max(ys)
+        ymin, ymax = min(0, min(ys + (avg or []))), max(ys + (avg or []))
         if ymax - ymin < 1: ymax = ymin + 1
+        if mode == "rate": ymax *= 1.15                    # headroom so the line stays clear of the legend
         px = lambda x: L + (R - L) * x / xmax
         py = lambda y: B - (B - T) * (y - ymin) / (ymax - ymin)
         for tv in nice_ticks(ymin, ymax):
             y = py(tv)
             lcv.create_line(L, y, R, y, fill="#2a2d36", tags="dyn")
-            self.txt(L - 8, y, fmt_num(tv) if idx == 1 else f"{tv:.0f}%", 8, self.c_label, False, "e")
+            lab = fmt_num(tv) if mode == "exp" else fmt_short(tv) if mode == "rate" else f"{tv:.0f}%"
+            self.txt(L - 8, y, lab, 8, self.c_label, False, "e")
         for i in range(5):
             x = xmax * i / 4
             self.txt(px(x), B + 11, fmt_dur(x), 8, self.c_label, False,
@@ -957,6 +1008,12 @@ class App:
         if self.S["graph_fill"]:       # solid accent on its own layer; that layer's opacity is the fill opacity
             fcv.create_polygon(line + [px(xs[-1]), py(0), px(xs[0]), py(0)], fill=self.acc, outline="", tags="dyn")
         wd = self.S["graph_width"]
+        if avg:
+            lcv.create_line(*[c for x, y in zip(xs, avg) for c in (px(x), py(y))],
+                            fill=self.c_sub, width=1, dash=(4, 3), tags="dyn")
+        if mode == "rate":
+            self.txt(L + 6, T + 2, f"EXP/h over the last {self.S['graph_rate_minutes']} min"
+                     + ("   - - session average" if avg else ""), 8, self.c_label, False, "nw")
         lcv.create_line(*line, fill=self.acc, width=wd, joinstyle="round", tags="dyn")
         r_ = 2 + wd
         lcv.create_oval(px(xs[-1]) - r_, py(ys[-1]) - r_, px(xs[-1]) + r_, py(ys[-1]) + r_, fill=self.acc, outline="", tags="dyn")
