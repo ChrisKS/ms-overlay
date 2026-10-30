@@ -57,16 +57,23 @@ def series(tracker, mode, style, rate_minutes, now):
     return list(gx), list(blur(np.interp(gx, px, py))), None
 
 
-def summary_line(tracker, cur, now):
-    """The text above the graph: session time, EXP and % gained, time to level."""
+SEP = "  \u00b7  "
+
+
+def summary_parts(tracker, cur, now):
+    """The text above the graph, most important first: session time, EXP and % gained, time to
+    level. (A narrow overlay shows as many as fit.)"""
     tr = tracker
     if tr.t0 is None:
-        return "Waiting for data…"
+        return ["Waiting for data\u2026"]
     r = tr.recent_rate(now)
     eta = eta_seconds(cur[2] if cur else None, r[1] if r else None)
-    t = (f"{fmt.dur(now - tr.t0)}  ·  {fmt.signed(tr.cum_exp, '~' if tr.approx else '')} EXP"
-         f"  ·  {fmt.signed_pct(tr.cum_pct)}")
-    return t + (f"  ·  level in {fmt.dur(eta)}" if eta is not None else "")
+    parts = [fmt.dur(now - tr.t0), f"{fmt.signed(tr.cum_exp, '~' if tr.approx else '')} EXP", fmt.signed_pct(tr.cum_pct)]
+    return parts + ([f"level in {fmt.dur(eta)}"] if eta is not None else [])
+
+
+def summary_line(tracker, cur, now):
+    return SEP.join(summary_parts(tracker, cur, now))
 
 
 def draw(ov, x1, y1, x2, y2, now):
@@ -76,8 +83,7 @@ def draw(ov, x1, y1, x2, y2, now):
     cv, fcv, lcv = ov.cv, ov.fillcv, ov.linecv
     mode = S["mode"]
     cv.create_line(x1, y1 - 2, x2, y1 - 2, fill=BORDER, width=1, tags="dyn")
-    # header line: session summary + EXP/%/EXP-per-hour switch
-    ov.txt(x1, y1 + 14, summary_line(tr, ov.session.cur, now), 9, ov.c_fg, False, "w")
+    # header line: EXP/%/EXP-per-hour switch, and as much of the session summary as fits beside it
     bx = x2 - 4                                          # buttons, right to left
     for key, (label, _) in reversed(GRAPH_MODES.items()):
         on, w = mode == key, 36 if len(label) < 4 else 50
@@ -86,6 +92,9 @@ def draw(ov, x1, y1, x2, y2, now):
         cv.create_text(bx - w / 2, y1 + 14, text=label, fill=ov.acc if on else ov.c_label,
                        font=(FONT, 8, "bold"), tags=("dyn", f"mode_{key}"))
         bx -= w + 8
+    parts = summary_parts(tr, ov.session.cur, now)
+    text = ov.fitting([SEP.join(parts[:n]) for n in range(len(parts), 0, -1)], 9, bx - x1, bold=False)
+    if text: ov.txt(x1, y1 + 14, text, 9, ov.c_fg, False, "w")
 
     # chart
     L, T, R, B = x1 + 46, y1 + 36, x2, y2 - 16
@@ -107,9 +116,10 @@ def draw(ov, x1, y1, x2, y2, now):
         lcv.create_line(L, y, R, y, fill=GRID, tags="dyn")
         lab = fmt.num(tv) if mode == "exp" else fmt.short(tv) if mode == "rate" else f"{tv:.0f}%"
         ov.txt(L - 8, y, lab, 8, ov.c_label, False, "e")
-    for i in range(5):
-        x = xmax * i / 4
-        ov.txt(px(x), B + 11, fmt.dur(x), 8, ov.c_label, False, "w" if i == 0 else "e" if i == 4 else "center")
+    n = max(1, min(4, int((R - L) // 80)))             # time labels: fewer on a narrow graph
+    for i in range(n + 1):
+        x = xmax * i / n
+        ov.txt(px(x), B + 11, fmt.dur(x), 8, ov.c_label, False, "w" if i == 0 else "e" if i == n else "center")
     line = [c for x, y in zip(xs, ys) for c in (px(x), py(y))]
     if S["graph_fill"]:       # solid accent on its own layer; that layer's opacity is the fill opacity
         fcv.create_polygon(line + [px(xs[-1]), py(0), px(xs[0]), py(0)], fill=ov.acc, outline="", tags="dyn")
@@ -118,8 +128,10 @@ def draw(ov, x1, y1, x2, y2, now):
         lcv.create_line(*[c for x, y in zip(xs, avg) for c in (px(x), py(y))],
                         fill=ov.c_sub, width=1, dash=(4, 3), tags="dyn")
     if mode == "rate":
-        ov.txt(L + 6, T + 2, f"EXP/h over the last {S['graph_rate_minutes']} min"
-               + ("   - - session average" if avg else ""), 8, ov.c_label, False, "nw")
+        m = S["graph_rate_minutes"]
+        legend = ov.fitting([f"EXP/h over the last {m} min" + ("   - - session average" if avg else ""),
+                             f"last {m} min" + ("  - - average" if avg else ""), f"{m} min"], 8, R - L - 12, bold=False)
+        if legend: ov.txt(L + 6, T + 2, legend, 8, ov.c_label, False, "nw")
     lcv.create_line(*line, fill=ov.acc, width=wd, joinstyle="round", tags="dyn")
     r_ = 2 + wd
     lcv.create_oval(px(xs[-1]) - r_, py(ys[-1]) - r_, px(xs[-1]) + r_, py(ys[-1]) + r_, fill=ov.acc, outline="", tags="dyn")

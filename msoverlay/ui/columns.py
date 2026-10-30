@@ -11,25 +11,32 @@ def header(kind, win):
     return f"{KINDS[kind][0]} · " + (f"{win // 60}M" if win else "SESSION")
 
 
-def value(tracker, kind, now, win, cur_pct=None):
-    """(text, window_is_full) for one column, or None if there is not enough data yet."""
+# Ways to write a value, longest first: the overlay uses a shorter one where a column is too
+# narrow. (EXP amounts, durations)
+STYLES = [(fmt.num, fmt.dur), (fmt.short, fmt.dur), (fmt.tiny, fmt.tiny_dur)]
+
+
+def value(tracker, kind, now, win, cur_pct=None, style=0):
+    """(text, window_is_full) for one column, or None if there is not enough data yet. `style`
+    picks one of STYLES; 0 is the full form."""
+    num, dur = STYLES[style]
     r = tracker.rate(now, win)
     if r is None:
         return None
     eh, ph, full = r
     start, span = tracker.window(now, win)
-    if kind == "exp_h":      t = fmt.num(eh)
-    elif kind == "exp_gain": t = "+" + fmt.num(eh * span / 3600)
+    if kind == "exp_h":      t = num(eh)
+    elif kind == "exp_gain": t = "+" + num(eh * span / 3600)
     elif kind == "pct_h":    t = fmt.pct(ph, 1)
     elif kind == "pct_gain": t = "+" + fmt.pct(ph * span / 3600, 2)
     elif kind == "eta":
         sec = eta_seconds(cur_pct, ph)
-        t = fmt.DASH if sec is None else fmt.dur(sec) if sec < 100 * 3600 else "99h+"
+        t = fmt.DASH if sec is None else dur(sec) if sec < 100 * 3600 else "99h+"
     elif kind == "kills":    t = str(tracker.gains(start))
     elif kind == "avg":
         n = tracker.gains(start)
-        t = fmt.num(eh * span / 3600 / n) if n else fmt.DASH
-    else: t = fmt.num(eh)
+        t = num(eh * span / 3600 / n) if n else fmt.DASH
+    else: t = num(eh)
     if tracker.approx and kind in APPROX_KINDS: t = "~" + t
     return t, full
 

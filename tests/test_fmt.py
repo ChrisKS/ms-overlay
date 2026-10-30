@@ -36,3 +36,8 @@ def test_signed():
 def test_durations():
     assert fmt.dur(59) == "0:59" and fmt.dur(3723) == "1:02:03"
     assert fmt.hours_minutes(5 * 3600 + 7 * 60 + 59) == "5h 07m"
+
+
+def test_tiny_forms():
+    assert fmt.tiny(239_770_000) == "240M" and fmt.tiny(59_400) == "59k" and fmt.tiny(-2500) == "-2.500"
+    assert fmt.tiny_dur(37 * 3600 + 105) == "37h" and fmt.tiny_dur(52 * 60 + 9) == "52m"

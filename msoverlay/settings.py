@@ -12,7 +12,7 @@ DEFAULTS = dict(
     name="Character", x=None, y=None,
     # general
     topmost=True, lock_position=False, show_name=True, reset_on_char=True, reads_per_sec=10,
-    check_updates=True,
+    check_updates=True, width=580,
     graph=False, mode="rate",
     # graph
     graph_style="line", graph_fill=True, graph_width=1, graph_opacity=0.5, fill_opacity=0.05,
@@ -31,6 +31,8 @@ DEFAULTS = dict(
     # the presence's second line: column slots like the rate columns'
     presence_minutes=[0, 5], presence_on=[True, True], presence_kind=["exp_gain", "exp_h"],
 )
+WIDTH_MIN, WIDTH_MAX = 240, 1200   # the overlay's width in pixels (one narrow column .. very wide)
+
 # kept by "Restore default settings": not preferences, but who you are and what you connected
 KEEP_ON_RESTORE = ("name", "x", "y", "discord_webhook", "discord_app_id")
 
@@ -104,6 +106,7 @@ def sanitize(s):
         s[k] = cast(_num(s.get(k), lo, hi, d[k]))
     def choice(k, options):
         if s.get(k) not in options: s[k] = d[k]
+    num("width", WIDTH_MIN, WIDTH_MAX, int)
     num("bg_opacity", 0.0, 1.0); num("fg_opacity", 0.2, 1.0)
     num("graph_opacity", 0.0, 1.0); num("fill_opacity", 0.0, 1.0)
     num("reads_per_sec", 2, 20, int); num("graph_rate_minutes", 1, 60, int); num("graph_width", 1, 4, int)

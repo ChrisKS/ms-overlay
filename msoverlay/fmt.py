@@ -40,6 +40,13 @@ def short(n):
     return ("-" if n < 0 else "") + _decimal(t)
 
 
+def tiny(n):
+    """The shortest form, for the tightest spots: 240M, 59k, 2.500 (no decimals)."""
+    a = abs(n)
+    t = f"{round(a / 1e6)}M" if a >= 1e6 else f"{round(a / 1e3)}k" if a >= 1e4 else None
+    return num(n) if t is None else ("-" if n < 0 else "") + t
+
+
 def pct(v, nd=2):
     return _decimal(f"{v:.{nd}f}") + "%"
 
@@ -57,6 +64,12 @@ def dur(sec):
     """1:02:03, or 2:03 under an hour."""
     sec = int(sec); h, r = divmod(sec, 3600); m, s = divmod(r, 60)
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
+def tiny_dur(sec):
+    """37h, or 52m under an hour: for the tightest spots."""
+    sec = int(sec)
+    return f"{sec // 3600}h" if sec >= 3600 else f"{sec // 60}m"
 
 
 def hours_minutes(sec):
