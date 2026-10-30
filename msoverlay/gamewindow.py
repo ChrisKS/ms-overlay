@@ -6,8 +6,9 @@ picture. If the game window can't be found or captured on its own, capture() ret
 never falls back to capturing the screen.
 
   Windows   the visible window of the process MapleStory.exe (or with the game's window class,
-            MapleStoryClass), drawn by Windows on its own (PrintWindow); its client area, without
-            the title bar
+            MapleStoryClass), captured with Windows Graphics Capture (what Discord streams with;
+            works for a game running as administrator), else drawn by Windows on its own
+            (PrintWindow); its client area, without the title bar
   macOS     the on-screen window of the app named MapleStory (CGWindowListCreateImage with only
             that window); needs the Screen Recording permission the overlay already has
   other     not supported: always None
@@ -160,15 +161,76 @@ def _capture_windows():
     if not shown:
         raise Problem("the MapleStory window is minimised")
     game = max(shown, key=lambda w: w["w"] * w["h"])
+    # 1. Windows Graphics Capture: frames of that one window straight from the compositor, as
+    #    Discord's streaming does. Works for a game running as administrator, needs no rights.
+    try:
+        img = _graphics_capture(game)
+        if img is not None and not is_blank(img):
+            return img
+        why = "no frame" if img is None else "black frame"
+    except Exception as e:
+        why = str(e) or type(e).__name__
+    # 2. Ask Windows to draw the window on its own; refused for an administrator's window
     img = None
     for flags in (3, 1):                         # PW_CLIENTONLY with PW_RENDERFULLCONTENT, then without
         img = _print_window(game["hwnd"], game["w"], game["h"], flags)
         if img is not None and not is_blank(img):
             return img
     if img is None:
-        raise Problem("Windows wouldn't let ms-overlay draw the MapleStory window "
-                      "(if the game runs as administrator, ms-overlay may need to as well)")
+        raise Problem(f"Windows wouldn't let ms-overlay capture the MapleStory window (Graphics Capture: {why})")
     return img                                   # blank: capture() reports it
+
+
+def _graphics_capture(game, timeout=3.0):
+    """One frame of the game window via Windows Graphics Capture (the windows-capture package),
+    cropped to the window's client area. None if no frame arrived."""
+    import importlib.util
+    import threading
+    import types
+    # windows-capture imports cv2 only for a save helper we never use, and the build leaves it out:
+    # stand in for it (once; the stand-in has no import spec to look up later)
+    if "cv2" not in sys.modules and importlib.util.find_spec("cv2") is None:
+        sys.modules["cv2"] = types.ModuleType("cv2")
+    from windows_capture import WindowsCapture
+    got, done = {}, threading.Event()
+    try:                                         # no yellow capture border (needs Windows 11)
+        cap = WindowsCapture(cursor_capture=False, draw_border=False, window_hwnd=int(game["hwnd"]))
+    except Exception:                            # Windows 10: the border can't be turned off
+        cap = WindowsCapture(cursor_capture=False, window_hwnd=int(game["hwnd"]))
+
+    @cap.event
+    def on_frame_arrived(frame, control):
+        if "img" not in got:                     # copy out of the mapped frame: BGRA -> RGB
+            got["img"] = Image.fromarray(frame.frame_buffer[:, :, 2::-1].copy())
+        control.stop(); done.set()
+
+    @cap.event
+    def on_closed():
+        done.set()
+
+    control = cap.start_free_threaded()
+    done.wait(timeout)
+    if not control.is_finished():
+        control.stop()
+    img = got.get("img")
+    return None if img is None else _crop_to_client(img, game)
+
+
+def _crop_to_client(img, game):
+    """Windows Graphics Capture returns the whole window (title bar and border too); keep the
+    client area, like the other method. The whole window if the offsets don't add up."""
+    try:
+        ctypes, wt, u, g, k, H = _win_api()
+        frame = wt.RECT()                        # the window's visible bounds = the captured frame
+        ctypes.windll.dwmapi.DwmGetWindowAttribute(H(game["hwnd"]), 9, ctypes.byref(frame), ctypes.sizeof(frame))
+        origin = wt.POINT(0, 0)                  # DWMWA_EXTENDED_FRAME_BOUNDS ^, client top-left v
+        ctypes.windll.user32.ClientToScreen(H(game["hwnd"]), ctypes.byref(origin))
+        x, y = origin.x - frame.left, origin.y - frame.top
+        if x >= 0 and y >= 0 and x + game["w"] <= img.width and y + game["h"] <= img.height:
+            return img.crop((x, y, x + game["w"], y + game["h"]))
+    except Exception:
+        pass
+    return img
 
 
 def _print_window(hwnd, w, h, flags):

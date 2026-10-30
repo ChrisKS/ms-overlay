@@ -46,7 +46,8 @@ if (-not (Test-Path "$TessDir\tesseract.exe")) {
 }
 
 Write-Host "==> Building exe with PyInstaller"
-python -m PyInstaller --onefile --noconsole --noconfirm --name ms-overlay `
+# cv2 (OpenCV, ~50 MB) comes with windows-capture but isn't used: leave it out of the exe
+python -m PyInstaller --onefile --noconsole --noconfirm --name ms-overlay --exclude-module cv2 `
     --distpath "$Build\dist" --workpath "$Build\pyi" --specpath "$Build" ms_overlay.py
 if (-not (Test-Path "$Build\dist\ms-overlay.exe")) { throw "PyInstaller build failed." }
 

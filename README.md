@@ -267,16 +267,21 @@ taken a second after the level-up so the level-up effect shows. It's off by defa
 window itself is captured, not the area of the screen where it is, so nothing covering the
 game (the overlay, notifications, other windows) and nothing around it can be in the picture:
 
-- **Windows:** the window of the `MapleStory.exe` process, drawn by Windows on its own,
-  without the title bar. The game runs as administrator and is guarded by anti-cheat, so its
-  process may refuse to say its name; the window is then recognised by its window class,
-  `MapleStoryClass`, which any program can read.
+- **Windows:** the window of the `MapleStory.exe` process, without its title bar. The game
+  runs as administrator and is guarded by anti-cheat, so its process may refuse to say its
+  name; the window is then recognised by its window class, `MapleStoryClass`, which any
+  program can read. It's captured with **Windows Graphics Capture**, the method Discord streams
+  with: Windows hands over the frames of that one window, even if something covers it, and it
+  works while the game runs as administrator without ms-overlay needing to. If that fails,
+  Windows is asked to draw the window on its own, which only works for an administrator's
+  window if ms-overlay runs as administrator too. On Windows 10 a yellow border may flash
+  around the game while the picture is taken; Windows 11 lets ms-overlay turn it off.
 - **macOS:** the window of the app named MapleStory, captured on its own. A browser tab or
   other window merely *titled* MapleStory never matches.
 
 If the game window can't be found or captured on its own, the post goes without a picture
 and the status next to the test button says which step failed: no MapleStory window found,
-the window is minimised, Windows wouldn't let ms-overlay draw it, or it came back black
+the window is minimised, Windows wouldn't let ms-overlay capture it, or it came back black
 (exclusive fullscreen). It never falls back to capturing the screen. Other platforms never
 attach a picture.
 
@@ -586,7 +591,7 @@ Gatekeeper asks before the first launch (see [Quick start](#macos-apple-silicon)
 | Values show `~` | A level-up was estimated. See [Level-ups](#level-ups). |
 | Rates reset by themselves | The character name changed. You can turn off *Start a new session when the character changes*. |
 | Discord: `Couldn't post: the webhook was deleted.` | Someone deleted the webhook in Discord. Create a new one and paste its URL. |
-| Discord: `(no screenshot: …)` | The reason names the step that failed. Run `ms-overlay.exe --capture-test` with the game open for details. If Windows wouldn't let ms-overlay draw the game, try running ms-overlay as administrator, like the game. |
+| Discord: `(no screenshot: …)` | The reason names the step that failed. Run `ms-overlay.exe --capture-test` with the game open for details. If Windows wouldn't let ms-overlay capture the game, the part in brackets says why Graphics Capture failed; running ms-overlay as administrator, like the game, is a last resort. |
 | Discord: `Not connected: Discord isn't running.` | Rich Presence needs the Discord desktop app open on the same computer. The browser version won't work. |
 | Discord: `Not connected: …` with another reason | If you set an own Application ID, check it's the number from your application's *General Information* page, or clear it to use ms-overlay's. |
 | Overlay hidden behind the game | Turn on *Always on top*, and run the game in windowed or borderless mode. Exclusive fullscreen can cover overlays. |
