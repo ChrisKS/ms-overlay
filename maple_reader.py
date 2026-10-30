@@ -10,13 +10,28 @@ from PIL import Image, ImageChops, ImageOps
 import numpy as np
 import pytesseract
 
-# --- Tesseract location: bundled "tesseract" folder next to the exe, else system install
-BASE = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.path.abspath(__file__))
-for _c in (os.path.join(BASE, "tesseract", "tesseract.exe"),
-           r"C:\Program Files\Tesseract-OCR\tesseract.exe"):
-    if os.path.exists(_c):
+MAC = sys.platform == "darwin"
+FROZEN = getattr(sys, "frozen", False)
+
+# --- Tesseract location: bundled "tesseract" folder next to the exe (Windows) or in the app's
+# Resources folder (macOS), else a system install, else whatever is on PATH
+BASE = os.path.dirname(sys.executable if FROZEN else os.path.abspath(__file__))
+for _c, _bundled in ((os.path.join(BASE, "tesseract", "tesseract.exe"), True),
+                     (os.path.join(BASE, "tesseract", "tesseract"), True),
+                     (os.path.join(BASE, "..", "Resources", "tesseract", "tesseract"), True),
+                     (r"C:\Program Files\Tesseract-OCR\tesseract.exe", False),
+                     ("/opt/homebrew/bin/tesseract", False),
+                     ("/usr/local/bin/tesseract", False)):
+    if os.path.isfile(_c):
         pytesseract.pytesseract.tesseract_cmd = _c
+        if _bundled and MAC:    # a relocated macOS build doesn't know where its language data is
+            os.environ.setdefault("TESSDATA_PREFIX", os.path.join(os.path.dirname(_c), "tessdata"))
         break
+
+# --- Where settings and the log are kept: next to the exe, except in the macOS app, whose own
+# folder must stay unchanged (writing into it would break its code signature)
+DATA = os.path.expanduser("~/Library/Application Support/MapleReader") if MAC and FROZEN else BASE
+os.makedirs(DATA, exist_ok=True)
 
 DEBUG = False
 # ------------------------------------------------------------------ OCR
@@ -288,12 +303,13 @@ class Tracker:
         return t, full
 
 # ------------------------------------------------------------------ helpers
-FONT = "Segoe UI" if sys.platform == "win32" else "DejaVu Sans"
+FONT = "Segoe UI" if sys.platform == "win32" else "Helvetica Neue" if MAC else "DejaVu Sans"
 KEY, BG, BORDER = "#010203", "#15161b", "#2c2f3a"
+CLEAR = "systemTransparent" if MAC else KEY   # see-through window/canvas background
 FG, FG2, DIM, DIM2 = "#eceef2", "#a4a9b8", "#7d8190", "#474a56"
 GOOD, BAD, WARN = "#5fd38d", "#ef6a6a", "#e0b34a"
 
-SETTINGS_PATH = os.path.join(BASE, "maple_settings.json")
+SETTINGS_PATH = os.path.join(DATA, "maple_settings.json")
 DEFAULTS = dict(
     name="Character", x=None, y=None,
     # general
@@ -437,14 +453,12 @@ class App:
         r = self.root = tk.Tk()
         r.title("MapleReader")
         r.overrideredirect(True)
-        r.configure(bg=KEY)
-        try: r.attributes("-transparentcolor", KEY)   # rounded corners (Windows)
-        except tk.TclError: pass
+        r.configure(bg=CLEAR)
+        self.see_through(r)                           # rounded corners
         def layer():
             w = tk.Toplevel(r)
-            w.overrideredirect(True); w.configure(bg=KEY)
-            try: w.attributes("-transparentcolor", KEY)
-            except tk.TclError: pass
+            w.overrideredirect(True); w.configure(bg=CLEAR)
+            self.see_through(w)
             try: w.transient(r)                       # an owned window stays above its owner
             except tk.TclError: pass
             return w
@@ -457,7 +471,7 @@ class App:
         self.acc = self.acc_fill = None
         self.c_fg = self.c_label = self.c_sub = self.c_faint = FG
         def canvas(w):
-            c = tk.Canvas(w, bg=KEY, highlightthickness=0, width=self.W, height=self.H); c.pack(); return c
+            c = tk.Canvas(w, bg=CLEAR, highlightthickness=0, width=self.W, height=self.H); c.pack(); return c
         self.bgcv, self.fillcv, self.linecv, self.cv = canvas(r), canvas(self.fillw), canvas(self.linew), canvas(fg)
         self.canvases = [self.bgcv, self.fillcv, self.linecv, self.cv]
         for w in self.layers:
@@ -468,7 +482,8 @@ class App:
             c.bind("<ButtonPress-1>", self.on_press)
             c.bind("<B1-Motion>", self.on_drag)
             c.bind("<ButtonRelease-1>", self.on_release)
-            c.bind("<Button-3>", self.on_menu)
+            for b in ("<Button-2>", "<Control-Button-1>") if MAC else ("<Button-3>",):   # right-click
+                c.bind(b, self.on_menu)
         self.resize(initial=True)
         self.apply(save=False)
 
@@ -517,6 +532,14 @@ class App:
             except self.tk.TclError:
                 try: hi.lift()
                 except self.tk.TclError: pass
+
+    def see_through(self, w):
+        """Let the window's background colour show what is behind it."""
+        try:
+            if MAC: w.attributes("-transparent", True)    # pairs with the "systemTransparent" colour
+            else: w.attributes("-transparentcolor", KEY)  # Windows
+        except self.tk.TclError:
+            pass
 
     def win32_own(self):
         """Make the text window an *owned* window of the background window (Windows only). Windows
@@ -777,9 +800,9 @@ class App:
 
     def open_data_folder(self):
         try:
-            if sys.platform == "win32": os.startfile(BASE)
+            if sys.platform == "win32": os.startfile(DATA)
             else:
-                import subprocess; subprocess.Popen(["xdg-open", BASE])
+                import subprocess; subprocess.Popen(["open" if MAC else "xdg-open", DATA])
         except Exception:
             pass
 
@@ -1017,7 +1040,7 @@ class App:
     def log_row(self, t, lvl, exp, pct):
         if not self.S["log_csv"]:
             return
-        path = os.path.join(BASE, "maple_log.csv")
+        path = os.path.join(DATA, "maple_log.csv")
         try:
             new = not os.path.exists(path)
             with open(path, "a", newline="") as f:
