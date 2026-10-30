@@ -387,7 +387,7 @@ maple_reader.exe [--image FILE] [--debug] [--demo]
 | `--debug` | Save the level OCR crops to `./debug`. |
 | `--demo` | Run the overlay with fake, slowly rising EXP, to preview the UI without the game. |
 
-From source, use `python maple_reader.py …` instead. For the macOS app, run
+From source, use `python maple_reader.py …` or `python -m maplereader …` instead. For the macOS app, run
 `/Applications/MapleReader.app/Contents/MacOS/MapleReader …` from Terminal.
 
 ---
@@ -409,6 +409,30 @@ python maple_reader.py
 Tesseract is looked for in a `tesseract` folder next to the script, then in
 `C:\Program Files\Tesseract-OCR\` (Windows) or Homebrew's `/opt/homebrew/bin` and
 `/usr/local/bin` (macOS), then on `PATH`. On a Mac, `brew install tesseract` is enough.
+
+### Project layout
+
+The code is the `maplereader` package. `maple_reader.py` only starts it, so the build scripts
+and `python maple_reader.py` keep working.
+
+| Module | What it does |
+|---|---|
+| `__main__.py` | Command line (`--image`, `--debug`, `--demo`) |
+| `paths.py` | The app's folder and the data folder |
+| `settings.py` | Defaults, the choices offered, validation, loading and saving |
+| `fmt.py` | Number, % and duration formatting, following the number-format setting |
+| `ocr.py` | Finding and reading the status bar in pixels: glyph matching for EXP and %, Tesseract for level and name |
+| `capture.py` | Screen-capture threads that feed the overlay through a queue |
+| `tracker.py` | EXP bookkeeping: gains, level-ups, rates over windows |
+| `session.py` | The core without UI: readings in, session out, with a clock that stops while paused |
+| `datalog.py` | The CSV log |
+| `discord.py` | Webhook posts, Rich Presence, and the messages they send |
+| `ui/overlay.py` | The overlay window |
+| `ui/graph.py`, `ui/columns.py` | What the graph and the rate columns show, and drawing the graph |
+| `ui/settings_window.py` | The settings window |
+| `ui/theme.py` | Colours, fonts and drawing helpers |
+
+Only `ui/` and `capture.py` touch Tk or the screen; everything else can be used on its own.
 
 ### Build the release zip (Windows)
 
