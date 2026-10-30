@@ -8,26 +8,39 @@ import re
 import sys
 import threading
 import time
+import uuid
 
-from . import fmt
+from . import fmt, gamewindow
 from .tracker import WHOLE, eta_seconds
 
 USER_AGENT = "MapleReader (https://github.com/ChrisKS/ms-overlay)"
 WEBHOOK_RE = re.compile(r"https://(?:(?:ptb|canary)\.)?discord(?:app)?\.com/api/webhooks/\d+/[\w-]+")
 SUMMARY_MIN = 300                # a session needs this many seconds since its first EXP gain to be posted
+SCREENSHOT_DELAY = 1.0           # seconds after a level-up before the game is captured (the effect shows)
+IMAGE_NAME = "maplestory.jpg"
 
 
 # ------------------------------------------------------------------ sending
 
 
-def post_webhook(url, payload, timeout=10):
-    """POST one message to a Discord webhook. -> None if it was sent, else a short reason."""
+def post_webhook(url, payload, timeout=10, image=None):
+    """POST one message to a Discord webhook, with `image` (JPEG bytes) attached if given; the
+    message can show it with attachment://IMAGE_NAME. -> None if it was sent, else a short reason."""
     import urllib.error
     import urllib.request
     if not WEBHOOK_RE.fullmatch(url or ""):
         return "that isn't a Discord webhook URL"
-    req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST",
-                                 headers={"Content-Type": "application/json", "User-Agent": USER_AGENT})
+    if image is None:
+        body, kind = json.dumps(payload).encode(), "application/json"
+    else:                                         # multipart: the message as JSON, then the file
+        b = uuid.uuid4().hex
+        body = (f"--{b}\r\nContent-Disposition: form-data; name=\"payload_json\"\r\n"
+                f"Content-Type: application/json\r\n\r\n{json.dumps(payload)}\r\n"
+                f"--{b}\r\nContent-Disposition: form-data; name=\"files[0]\"; filename=\"{IMAGE_NAME}\"\r\n"
+                f"Content-Type: image/jpeg\r\n\r\n").encode() + image + f"\r\n--{b}--\r\n".encode()
+        kind = f"multipart/form-data; boundary={b}"
+    req = urllib.request.Request(url, data=body, method="POST",
+                                 headers={"Content-Type": kind, "User-Agent": USER_AGENT})
     try:
         with urllib.request.urlopen(req, timeout=timeout):
             return None
@@ -148,12 +161,10 @@ def test_message(name, levelups, sessions, color):
                  [("Character", name), ("Posts", ", ".join(posts) or "none (turned off)")], color)
 
 
-def level_up_message(name, lvl, session, color):
-    tr, now = session.tracker, session.clock()
-    r = tr.recent_rate(now)
-    fields = [("Session", fmt.dur(now - tr.t0)), ("EXP gained", fmt.signed(tr.cum_exp, "~" if tr.approx else ""))]
-    if r: fields.append(("EXP/h", fmt.num(r[0])))
-    return embed(f"{name} reached level {lvl}! \U0001F389", fields, color)
+def level_up_message(name, job, lvl, color):
+    """'Mapler (Hero) reached level 143! 🎉'; without the job if it hasn't been read."""
+    who = f"{name} ({job})" if job else name
+    return embed(f"{who} reached level {lvl}! \U0001F389", [], color)
 
 
 def session_summary(name, session, color):
@@ -210,12 +221,24 @@ class DiscordLink:
         self.announced = {}         # character name -> highest level-up already posted
         self.webhook_status = ""
 
-    def _send(self, payload, wait=False, test=False):
+    def _send(self, payload, wait=False, test=False, screenshot=False):
+        """Post in the background (or right away with `wait`). With `screenshot`, the game window
+        is captured first and shown in the message; if it can't be, the message goes without."""
         url = self.S["discord_webhook"]
         def go():
-            err = post_webhook(url, payload)
-            self.notify(f"Couldn't post: {err}." if err else
-                        "Test message sent." if test else f"Last post: {time.strftime('%H:%M')}")
+            image = None
+            if screenshot:
+                if not test: time.sleep(SCREENSHOT_DELAY)
+                shot = gamewindow.capture()
+                if shot is not None:
+                    image = gamewindow.as_jpeg(shot)
+                    payload["embeds"][0]["image"] = {"url": f"attachment://{IMAGE_NAME}"}
+            err = post_webhook(url, payload, image=image)
+            note = (f"Couldn't post: {err}." if err else
+                    "Test message sent." if test else f"Last post: {time.strftime('%H:%M')}")
+            if not err and screenshot and image is None:
+                note += " (no screenshot: the MapleStory window couldn't be captured)"
+            self.notify(note)
         if wait: go()
         else: threading.Thread(target=go, daemon=True).start()
 
@@ -225,15 +248,16 @@ class DiscordLink:
     def test(self):
         self.webhook_status = "Sending\u2026"
         S = self.S
-        self._send(test_message(S["name"], S["discord_levelups"], S["discord_sessions"], S["accent"]), test=True)
+        self._send(test_message(S["name"], S["discord_levelups"], S["discord_sessions"], S["accent"]), test=True,
+                   screenshot=S["discord_screenshot"])         # shows exactly what a level-up would share
 
-    def level_up(self, lvl, session):
+    def level_up(self, lvl, job=None):
         name = self.S["name"]
         if lvl <= self.announced.get(name, 0):        # already posted (e.g. a misread level came back)
             return
         self.announced[name] = lvl
         if self._wants("discord_levelups"):
-            self._send(level_up_message(name, lvl, session, self.S["accent"]))
+            self._send(level_up_message(name, job, lvl, self.S["accent"]), screenshot=self.S["discord_screenshot"])
 
     def session_ended(self, session, wait=False):
         """Post a summary of the session that is about to end, if it's long enough and wanted.

@@ -264,17 +264,20 @@ class SettingsWindow:
         self.hint(dc, 1, "Posts to a Discord channel. In Discord: Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL, then paste it here. It is hidden because anyone with it can post to the channel.", wrap=470, pady=(0, 4))
         ttk.Entry(dc, textvariable=self.svar("discord_webhook"), show="•", width=58).grid(row=2, column=0, columnspan=4, sticky="w", pady=4)
         self.check(dc, 3, "Post when you level up", "discord_levelups")
-        self.check(dc, 4, "Post a summary when a session ends (5+ minutes of EXP)", "discord_sessions")
-        self.hint(dc, 5, "A session ends when you reset it, switch character, or quit.", wrap=470, pady=(0, 4))
-        tf = self.row_frame(dc, 6, pady=(4, 0))
+        self.check(dc, 4, "Attach a screenshot of the game to level-up posts", "discord_screenshot")
+        self.hint(dc, 5, "Only the MapleStory window is captured, never anything else on the screen. If it can't be "
+                         "captured on its own, the post goes without a picture. Mind that chat shows in the picture.", wrap=470, pady=(0, 4))
+        self.check(dc, 6, "Post a summary when a session ends (5+ minutes of EXP)", "discord_sessions")
+        self.hint(dc, 7, "A session ends when you reset it, switch character, or quit.", wrap=470, pady=(0, 4))
+        tf = self.row_frame(dc, 8, pady=(4, 0))
         ttk.Button(tf, text="Send test message", command=self.ov.discord_test).pack(side="left")
-        ttk.Label(tf, textvariable=self.webhook_status, style="Hint.TLabel").pack(side="left", padx=(10, 0))
-        self.head(dc, "Rich Presence", 7)
-        self.hint(dc, 8, "Shows your level, EXP per hour and session time on your Discord profile. Needs the Discord app running on this computer, "
-                         "and the Application ID of an application you create at discord.com/developers/applications. "
-                         "Discord shows the application's name after “Playing”, so naming it MapleStory works well.", wrap=470, pady=(0, 4))
-        self.check(dc, 9, "Show on my Discord profile", "discord_presence")
-        af = self.row_frame(dc, 10)
+        ttk.Label(tf, textvariable=self.webhook_status, style="Hint.TLabel", wraplength=330, justify="left").pack(side="left", padx=(10, 0))
+        self.head(dc, "Rich Presence", 9)
+        self.hint(dc, 10, "Shows your level, EXP per hour and session time on your Discord profile. Needs the Discord app running on this computer, "
+                          "and the Application ID of an application you create at discord.com/developers/applications. "
+                          "Discord shows the application's name after \u201cPlaying\u201d, so naming it MapleStory works well.", wrap=470, pady=(0, 4))
+        self.check(dc, 11, "Show on my Discord profile", "discord_presence")
+        af = self.row_frame(dc, 12)
         ttk.Label(af, text="Application ID").pack(side="left")
         ttk.Entry(af, textvariable=self.svar("discord_app_id"), width=24).pack(side="left", padx=(10, 0))
-        ttk.Label(dc, textvariable=self.presence_status, style="Hint.TLabel").grid(row=11, column=0, columnspan=4, sticky="w", pady=(4, 0))
+        ttk.Label(dc, textvariable=self.presence_status, style="Hint.TLabel").grid(row=13, column=0, columnspan=4, sticky="w", pady=(4, 0))

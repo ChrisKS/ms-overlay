@@ -3,6 +3,7 @@
 Messages put on the queue:
   ("read", wall_time, result)   a result of ocr.read_strip() plus "level" (see Session.read)
   ("name", name)                the character name, once it has been read consistently
+  ("job", job)                  the job, likewise (only real job names; see ocr.match_job)
   ("error", text)               the screen couldn't be captured
 """
 import threading
@@ -91,24 +92,25 @@ class Reader:
                 time.sleep(max(0.0, 1.0 / self.S["reads_per_sec"] - (time.time() - t0)))
 
     def _name_loop(self):
-        """The character name now and then (slow-changing, so not part of the fast loop). A name is
-        reported once it wins a vote over the last few readings."""
+        """The character name and job now and then (slow-changing, so not part of the fast loop).
+        Each is reported once it wins a vote over the last few readings."""
         import mss
-        votes, last_loc = [], None
+        votes, last_loc = {"name": [], "job": []}, None
         with mss.mss() as s:
             while True:
                 loc = self.loc
                 if loc is None or self.session.paused or self.demo:
                     time.sleep(0.5); continue
                 if loc != last_loc:
-                    votes, last_loc = [], loc
-                try:
-                    nm = ocr.read_name(grab_image(s, ocr.rel_rect(*loc, ocr.NAME_REL)))
-                    if nm:
-                        votes = (votes + [nm])[-5:]
-                        top = max(set(votes), key=votes.count)
-                        if votes.count(top) >= 2 or len(votes) >= 3:
-                            self.q.put(("name", top))
-                except Exception:
-                    pass
-                time.sleep(1.0 if len(votes) < 5 else 15.0)
+                    votes, last_loc = {"name": [], "job": []}, loc
+                for kind, read, rel in (("name", ocr.read_name, ocr.NAME_REL), ("job", ocr.read_job, ocr.JOB_REL)):
+                    try:
+                        text = read(grab_image(s, ocr.rel_rect(*loc, rel)))
+                    except Exception:
+                        continue
+                    if text:
+                        v = votes[kind] = (votes[kind] + [text])[-5:]
+                        top = max(set(v), key=v.count)
+                        if v.count(top) >= 2 or len(v) >= 3:
+                            self.q.put((kind, top))
+                time.sleep(1.0 if len(votes["name"]) < 5 else 15.0)

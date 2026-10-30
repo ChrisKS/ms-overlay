@@ -14,13 +14,26 @@ from maplereader import discord, fmt, settings
 from maplereader.session import Session
 
 
+def parse_post(content_type, body):
+    """-> (message, attached image bytes or None), for JSON and multipart posts alike"""
+    if content_type == "application/json":
+        return json.loads(body), None
+    from email.parser import BytesParser
+    msg = BytesParser().parsebytes(b"Content-Type: " + content_type.encode() + b"\r\n\r\n" + body)
+    parts = {p.get_param("name", header="content-disposition"): p for p in msg.get_payload()}
+    assert parts["files[0]"].get_filename() == discord.IMAGE_NAME
+    return json.loads(parts["payload_json"].get_payload(decode=True)), parts["files[0]"].get_payload(decode=True)
+
+
 @pytest.fixture
 def webhook(monkeypatch):
     """A local server standing in for Discord's webhook endpoint. -> (url, posts)"""
     posts = []
     class H(BaseHTTPRequestHandler):
         def do_POST(self):
-            posts.append((self.headers["User-Agent"], json.loads(self.rfile.read(int(self.headers["Content-Length"])))))
+            body = self.rfile.read(int(self.headers["Content-Length"]))
+            payload, image = parse_post(self.headers["Content-Type"], body)
+            posts.append((self.headers["User-Agent"], payload, image))
             self.send_response(404 if "/deleted/" in self.path else 204); self.end_headers()
         def log_message(self, *a): pass
     srv = HTTPServer(("127.0.0.1", 0), H)
@@ -45,7 +58,9 @@ def a_session(minutes=10, lvl=142):
 def test_post_webhook(webhook):
     url, posts = webhook
     assert discord.post_webhook(url, {"content": "hi"}) is None
-    assert posts == [(discord.USER_AGENT, {"content": "hi"})]
+    assert posts == [(discord.USER_AGENT, {"content": "hi"}, None)]
+    assert discord.post_webhook(url, {"content": "pic"}, image=b"\xff\xd8jpeg") is None
+    assert posts[1] == (discord.USER_AGENT, {"content": "pic"}, b"\xff\xd8jpeg")
     assert discord.post_webhook(url.replace("/123/", "/deleted/"), {}) == "the webhook was deleted"
     assert discord.post_webhook("https://example.com/hook", {}) == "that isn't a Discord webhook URL"
 
@@ -60,9 +75,10 @@ def test_messages():
     ses = a_session()
     title = lambda m: m["embeds"][0]["title"]
     fields = lambda m: {f["name"]: f["value"] for f in m["embeds"][0]["fields"]}
-    up = discord.level_up_message("Mapler", 143, ses, "#5ec8f2")
-    assert title(up) == "Mapler reached level 143! \U0001F389" and fields(up)["Session"] == "10:00"
+    up = discord.level_up_message("Mapler", "Hero", 143, "#5ec8f2")
+    assert title(up) == "Mapler (Hero) reached level 143! \U0001F389" and fields(up) == {}
     assert up["embeds"][0]["color"] == 0x5ec8f2
+    assert title(discord.level_up_message("Mapler", None, 143, "#5ec8f2")) == "Mapler reached level 143! \U0001F389"
     s = discord.session_summary("Mapler", ses, "#5ec8f2")
     assert title(s) == "Mapler’s session"
     assert fields(s)["EXP gained"] == "+1.000.000" and fields(s)["Kills"] == "40" and fields(s)["Level"] == "142 (97,50%)"
@@ -99,7 +115,7 @@ def test_link_posts_level_ups_once_and_summaries(webhook):
     url, posts = webhook
     link, s, notes = link_for(url)
     ses = a_session()
-    link.level_up(143, ses); link.level_up(143, ses); link.level_up(142, ses)
+    link.level_up(143, "Hero"); link.level_up(143, "Hero"); link.level_up(142)
     wait_for(lambda: len(posts) == 1)
     assert "reached level 143" in posts[0][1]["embeds"][0]["title"] and notes[0].startswith("Last post")
     link.session_ended(ses, wait=True)
@@ -114,7 +130,7 @@ def test_link_in_demo_mode_only_sends_the_test(webhook):
     s = settings.defaults(); s.update(discord_webhook=url)
     notes = []
     link = discord.DiscordLink(s, notes.append, posts=False)
-    link.level_up(143, a_session()); link.session_ended(a_session(), wait=True)
+    link.level_up(143); link.session_ended(a_session(), wait=True)
     link.test()
     wait_for(lambda: notes)
     assert len(posts) == 1 and notes == ["Test message sent."]
@@ -170,3 +186,36 @@ def test_presence_reports_when_discord_is_not_running(tmp_path, monkeypatch):
     p = discord.Presence(); p.INTERVAL = 0.05
     p.set("1234", {"details": "x"})
     wait_for(lambda: p.status == "Discord isn't running")
+
+
+def test_screenshots_are_attached_only_when_turned_on_and_captured(webhook, monkeypatch):
+    from PIL import Image
+    url, posts = webhook
+    monkeypatch.setattr(discord, "SCREENSHOT_DELAY", 0)
+    shots = []
+    monkeypatch.setattr(discord.gamewindow, "capture", lambda: shots.append(1) or Image.new("RGB", (64, 36), "teal"))
+    link, s, notes = link_for(url)
+    link.level_up(150)                                          # off by default: nothing captured
+    wait_for(lambda: len(posts) == 1)
+    assert posts[0][2] is None and not shots and "image" not in posts[0][1]["embeds"][0]
+    s["discord_screenshot"] = True
+    link.level_up(151, "Hero")
+    wait_for(lambda: len(posts) == 2)
+    img = Image.open(__import__("io").BytesIO(posts[1][2]))
+    assert img.format == "JPEG" and img.size == (64, 36)
+    assert posts[1][1]["embeds"][0]["image"] == {"url": "attachment://" + discord.IMAGE_NAME}
+    monkeypatch.setattr(discord.gamewindow, "capture", lambda: None)   # game window not capturable
+    link.level_up(152)
+    wait_for(lambda: len(posts) == 3 and len(notes) == 3)
+    assert posts[2][2] is None and "image" not in posts[2][1]["embeds"][0]
+    assert notes[-1].endswith("(no screenshot: the MapleStory window couldn't be captured)")
+
+
+def test_test_message_previews_the_screenshot(webhook, monkeypatch):
+    from PIL import Image
+    url, posts = webhook
+    monkeypatch.setattr(discord.gamewindow, "capture", lambda: Image.new("RGB", (8, 8), "red"))
+    link, s, notes = link_for(url, discord_screenshot=True)
+    link.test()
+    wait_for(lambda: notes)
+    assert posts[0][2] is not None and notes == ["Test message sent."]

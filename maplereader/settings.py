@@ -25,7 +25,7 @@ DEFAULTS = dict(
     # data
     log_csv=True,
     # discord
-    discord_webhook="", discord_levelups=True, discord_sessions=True,
+    discord_webhook="", discord_levelups=True, discord_screenshot=False, discord_sessions=True,
     discord_presence=False, discord_app_id="",
 )
 # kept by "Restore default settings": not preferences, but who you are and what you connected
@@ -53,7 +53,8 @@ GRAPH_STYLES = {"step": "Stepped (sharp)", "line": "Straight lines", "smooth": "
 GRAPH_MODES = {"exp": ("EXP", "EXP gained"), "pct": ("%", "% gained"), "rate": ("EXP/H", "EXP per hour")}
 
 _BOOLS = ("topmost", "lock_position", "show_name", "reset_on_char", "graph", "log_csv", "graph_fill",
-          "text_shadow", "rate_dim", "graph_avg", "discord_levelups", "discord_sessions", "discord_presence")
+          "text_shadow", "rate_dim", "graph_avg", "discord_levelups", "discord_screenshot", "discord_sessions",
+          "discord_presence")
 _TEXTS = ("discord_webhook", "discord_app_id")
 
 
