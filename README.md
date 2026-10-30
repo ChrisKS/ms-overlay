@@ -109,12 +109,19 @@ Click the small chevron (`▾` / `▴`) at the bottom to open or close the graph
 
 - **Summary line:** session length · total EXP gained · total % gained · estimated time to
   level. The estimate uses the last 15 minutes' rate, or the whole session if it's shorter.
-- The **EXP / %** buttons switch the graph between cumulative EXP and cumulative level %.
-- The X axis is time since the session started. The Y axis is the cumulative gain.
-- The line can be stepped, straight or smooth. You can set its thickness, opacity and fill in
-  the settings.
-- The graph needs at least two data points. Until then it shows
-  "Gain some EXP to start the graph".
+- The **EXP**, **%** and **EXP/H** buttons switch what the graph plots:
+  - **EXP:** cumulative EXP gained.
+  - **%:** cumulative level % gained.
+  - **EXP/H:** your EXP per hour through the session, measured over the last 5 minutes by
+    default. It shows when you were fast and when you slowed down, for example when a buff ran
+    out or the map got crowded. A dashed line shows your session average up to each moment, so
+    the line is above it whenever you were beating your average. The line starts one minute
+    after your first EXP gain, because a rate from a few kills swings wildly.
+- The X axis is time since the session started.
+- The EXP and % lines can be stepped, straight or smooth. The EXP/H line is straight, or
+  smooth if you choose that style. You can set thickness, opacity and fill in the settings.
+- The EXP and % graphs need at least two data points, and EXP/H needs a minute of EXP. Until
+  then the graph shows a short message instead.
 
 ### Mouse controls
 
@@ -122,7 +129,7 @@ Click the small chevron (`▾` / `▴`) at the bottom to open or close the graph
 |---|---|
 | Left-drag | Move the overlay (unless *Lock position* is on). The position is saved. |
 | Click `▾` / `▴` | Show or hide the graph. |
-| Click `EXP` / `%` | Switch what the graph plots. |
+| Click `EXP` / `%` / `EXP/H` | Switch what the graph plots. |
 | Right-click (or Control-click on a Mac) | Menu: **Pause / Resume**, **Reset session**, **Settings…**, **Quit**. |
 
 **Pause** stops all screen reading until you resume. **Reset session** clears every
@@ -238,7 +245,9 @@ transparent windows stacked together, so each one can fade on its own.
 | Setting | Options |
 |---|---|
 | Show graph | On or off |
-| Plots | EXP gained or % gained |
+| Plots | EXP gained, % gained or EXP per hour |
+| EXP per hour: rate over the last | 1–60 minutes (default 5). Shorter shows every change of pace; longer is calmer. |
+| EXP per hour: session average | Show or hide the dashed session-average line (default on) |
 | Line style | **Stepped** shows exactly when EXP arrived, **Straight** joins the points, **Smooth** averages them |
 | Line thickness | 1–4 px |
 | Line opacity | 0–100% |
