@@ -5,6 +5,8 @@ from tkinter import ttk
 
 from ..settings import (ACCENTS, DEFAULTS, FONT_SCALES, GRAPH_MODES, GRAPH_STYLES, KINDS,
                         NUMBER_FORMATS, TEXT_COLORS)
+from ..updates import parse
+from ..version import VERSION
 from .theme import BG, BORDER, BUTTON, BUTTON_HOVER, DIM, FG, FIELD, FONT, SLIDER, TAB
 
 
@@ -22,6 +24,7 @@ class SettingsWindow:
         self.style = self._style()
         self.nb = ttk.Notebook(w); self.nb.pack(fill="both", expand=True, padx=14, pady=(14, 6))
         self.webhook_status, self.presence_status = tk.StringVar(), tk.StringVar()
+        self.update_status = tk.StringVar(value=overlay.updates.status)
         for build in (self._general, self._rates, self._appearance, self._graph, self._data, self._discord):
             build()
         w.bind("<Destroy>", lambda e: root.after(30, overlay.fix_stack) if e.widget is w else None)
@@ -186,6 +189,11 @@ class SettingsWindow:
         self.head(g, "Reading", 6)
         self.spin(g, 7, "Screen reads per second", "reads_per_sec", 2, 20)
         self.hint(g, 8, "Higher = EXP updates sooner, slightly more CPU.")
+        self.head(g, "Updates", 9)
+        self.check(g, 10, "Tell me when a new version is out", "check_updates", after=self.ov.updates.check_now)
+        this = f"This is version {VERSION}." if parse(VERSION) else "This is a development build."
+        self.hint(g, 11, f"Asks GitHub every few hours for the latest release; nothing is downloaded. {this}")
+        ttk.Label(g, textvariable=self.update_status, style="Hint.TLabel", wraplength=400, justify="left").grid(row=12, column=0, columnspan=4, sticky="w", pady=(4, 0))
 
     def _rates(self):
         r, S = self.page("Rates"), self.S
