@@ -134,8 +134,8 @@ Click the small chevron (`▾` / `▴`) at the bottom to open or close the graph
 | Click `EXP` / `%` / `EXP/H` | Switch what the graph plots. |
 | Right-click (or Control-click on a Mac) | Menu: **Pause / Resume**, **Reset session**, **Settings…**, **Quit**. |
 
-**Pause** stops all screen reading until you resume. **Reset session** clears every
-accumulated number and starts fresh.
+**Pause** works like a stopwatch: the session stops until you resume. **Reset session** clears
+every accumulated number and starts fresh. See [Pausing](#pausing) for exactly what Pause does.
 
 ---
 
@@ -177,6 +177,23 @@ characters.
   two reads count as one.
 - **EXP vs. %.** EXP gains come from the EXP number. % gains use level + % together, so they
   carry across level-ups.
+
+### Pausing
+
+Pause stops the session like a stopwatch:
+
+- **Time stands still.** Paused time is cut out of everything: the rates and their windows, the
+  session time, the graph's time axis and the Discord timer. A 5-minute window that spans a
+  pause covers 5 minutes of unpaused time. After you resume, the numbers continue as if the
+  pause never happened.
+- **Gains made while paused don't count.** If you keep playing while paused, the first reading
+  after you resume becomes the new starting point. EXP gained during the pause, including a
+  level-up, isn't added to the session. A level-up is still posted to Discord, because you did
+  reach that level.
+- **Screen reading stops** while paused, so no CPU goes to OCR. The status dot turns amber, and
+  Discord shows *Paused* without a timer.
+
+To start over instead, use **Reset session**.
 
 ### Level-ups
 
@@ -254,7 +271,8 @@ once:
 Details:
 
 - The EXP/h is from the last 15 minutes, or the whole session if it's shorter. The time
-  counts up from the start of the session. While paused it shows *Paused*.
+  counts up from the start of the session, leaving out paused time. While paused it shows
+  *Paused* without a timer.
 - If the status bar hasn't been read for a minute (the game is closed, for example), the status
   is cleared until it's read again.
 - Discord accepts at most one update every 15 seconds, so the numbers lag a little.
