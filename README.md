@@ -584,18 +584,26 @@ Gatekeeper asks before the first launch (see [Quick start](#macos-apple-silicon)
 
 ### CI
 
-`.github/workflows/tests.yml` runs the tests on every push and pull request.
+`.github/workflows/release.yml` runs the tests, then builds on `windows-latest` and on
+`macos-latest` (Apple Silicon) at the same time, then checks that both zips are there for a
+release. Before building, it writes the version into `msoverlay/version.py`, so the app knows
+it for [update checks](#updates): the tag, or `dev` for anything else.
 
-`.github/workflows/release.yml` runs the same tests, then builds on `windows-latest` and on
-`macos-latest` (Apple Silicon) at the same time. Before building, it writes the tag into
-`msoverlay/version.py`, so the app knows its version for [update checks](#updates):
-
+- **Pull requests** run all of it except publishing, and make `ms-overlay-windows-dev.zip`
+  and `ms-overlay-macos-dev.zip` (under the run's Artifacts) to try out. A pull request that
+  would break the tests, a build or the release shows a failing check before it's merged.
 - **Pushing a `v*` tag**, e.g. `git tag v1.0.0 && git push --tags`, builds
-  `ms-overlay-windows-v1.0.0.zip` and `ms-overlay-macos-v1.0.0.zip`. Once both builds
-  succeed, it publishes them together as one GitHub release with auto-generated notes. If the
-  tests or either build fail, nothing is published.
-- **Running the workflow manually** from the Actions tab builds `ms-overlay-windows-dev.zip`
-  and `ms-overlay-macos-dev.zip` and only uploads them as workflow artifacts.
+  `ms-overlay-windows-v1.0.0.zip` and `ms-overlay-macos-v1.0.0.zip` and, once everything
+  succeeds, publishes them together as one GitHub release with auto-generated notes. If the
+  tests, either build or the check fail, nothing is published.
+- **Running it manually** from the Actions tab works like a pull request: test zips, no release.
+
+`.github/workflows/tests.yml` runs just the tests on every push to `main`.
+
+To make the checks *required* before merging, add a branch protection rule for `main` in the
+repository's settings (Settings → Rules → Rulesets, or Settings → Branches) that requires the
+status checks `tests / tests`, `build (windows, windows-latest)`, `build (macos, macos-latest)`
+and `release`.
 
 ---
 

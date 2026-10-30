@@ -2,11 +2,15 @@ name: Build and release
 
 on:
   push:
-    tags: ["v*"]          # e.g. git tag v1.0.0 && git push --tags
-  workflow_dispatch:      # manual run from the Actions tab (builds, uploads as artifacts only)
+    tags: ["v*"]          # e.g. git tag v1.0.0 && git push --tags: tests, builds and publishes a release
+  pull_request:           # tests, builds and checks the release files, without publishing
+  workflow_dispatch:      # manual run from the Actions tab: like a pull request
 
 permissions:
   contents: write         # needed to create the release
+
+env:
+  VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}   # the tag, or "dev" for anything else
 
 jobs:
   tests:
@@ -33,10 +37,7 @@ jobs:
 
       - name: Stamp the version into the app
         shell: bash
-        run: |
-          if [ "$GITHUB_REF_TYPE" = "tag" ]; then v="$GITHUB_REF_NAME"; else v="dev"; fi
-          printf '"""Stamped by the release workflow."""\nVERSION = "%s"\n' "$v" > msoverlay/version.py
-          echo "VERSION=$v" >> "$GITHUB_ENV"
+        run: printf '"""Stamped by the release workflow."""\nVERSION = "%s"\n' "$VERSION" > msoverlay/version.py
 
       - name: Build ms-overlay.zip (Windows)
         if: matrix.os == 'windows'
@@ -63,29 +64,29 @@ jobs:
           path: ${{ env.ZIP_NAME }}
           archive: false        # upload the zip as it is: no zip inside GitHub's own zip (the file name names it)
 
-  release:
-    needs: build
-    if: github.ref_type == 'tag'
+  release:                # on pull requests too, so a broken release is caught before merging;
+    needs: build          # only a tag publishes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: ms-overlay-windows-${{ github.ref_name }}.zip
+          name: ms-overlay-windows-${{ env.VERSION }}.zip
           path: dist
           skip-decompress: true   # keep the zip as it is (it would otherwise be unpacked into dist)
 
       - uses: actions/download-artifact@v8
         with:
-          name: ms-overlay-macos-${{ github.ref_name }}.zip
+          name: ms-overlay-macos-${{ env.VERSION }}.zip
           path: dist
           skip-decompress: true   # keep the zip as it is (it would otherwise be unpacked into dist)
 
       - name: Check both zips are there
         run: |
           ls -l dist
-          test -f "dist/ms-overlay-windows-$GITHUB_REF_NAME.zip" && test -f "dist/ms-overlay-macos-$GITHUB_REF_NAME.zip"
+          test -f "dist/ms-overlay-windows-$VERSION.zip" && test -f "dist/ms-overlay-macos-$VERSION.zip"
 
       - name: Publish release
+        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*.zip
