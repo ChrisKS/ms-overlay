@@ -7,7 +7,7 @@ def test_defaults_are_valid_and_independent_copies():
     a, b = settings.defaults(), settings.defaults()
     assert settings.sanitize(dict(a)) == a
     a["rate_minutes"][0] = 99
-    assert b["rate_minutes"][0] == 5 and settings.DEFAULTS["rate_minutes"][0] == 5
+    assert b["rate_minutes"][0] == settings.DEFAULTS["rate_minutes"][0] != 99
 
 
 def test_sanitize_repairs_bad_values():
@@ -15,9 +15,9 @@ def test_sanitize_repairs_bad_values():
                                rate_kind=["nope"] * 4, accent="red", mode="bogus", font_scale=1.12,
                                reads_per_sec=99, graph_rate_minutes=0, discord_webhook="  url  ", topmost=0))
     assert s["rate_on"] == [True, False, False, False]          # at least one column stays on
-    assert s["rate_minutes"] == [5, 15, 720, 0]
+    assert s["rate_minutes"] == [5, settings.DEFAULTS["rate_minutes"][1], 720, 0]   # "x": that slot's default
     assert s["rate_kind"] == ["exp_h"] * 4
-    assert s["accent"] == settings.DEFAULTS["accent"] and s["mode"] == "exp"
+    assert s["accent"] == settings.DEFAULTS["accent"] and s["mode"] == settings.DEFAULTS["mode"]
     assert s["font_scale"] == 1.15 and s["reads_per_sec"] == 20 and s["graph_rate_minutes"] == 1
     assert s["discord_webhook"] == "url" and s["topmost"] is False
 
@@ -54,9 +54,22 @@ def test_column_slot_sets_are_validated_alike():
     s = settings.sanitize(dict(settings.defaults(), presence_on=[False, False], presence_minutes=[5],
                                presence_kind=["nope", "kills"]))
     assert s["presence_on"] == [False, False]                    # the presence line may show nothing...
-    assert s["presence_minutes"] == [15, 15]                     # ...a malformed list gets the defaults
+    assert s["presence_minutes"] == settings.DEFAULTS["presence_minutes"]   # ...a malformed list: the defaults
     assert s["presence_kind"] == ["exp_h", "kills"]
     s = settings.sanitize(dict(settings.defaults(), rate_on=[False] * 4))
     assert s["rate_on"][0]                                       # ...but the overlay keeps a column
-    assert settings.enabled_columns(settings.defaults(), "rate") == [(300, "exp_h"), (900, "exp_h"), (1800, "exp_h"), (3600, "exp_h")]
-    assert settings.enabled_columns(settings.defaults(), "presence") == [(900, "exp_h"), (900, "eta")]
+    assert settings.enabled_columns(settings.defaults(), "rate") == [(0, "exp_gain"), (300, "exp_h"), (1800, "exp_h"), (1800, "eta")]
+    assert settings.enabled_columns(settings.defaults(), "presence") == [(0, "exp_gain"), (300, "exp_h")]
+
+
+def test_the_chosen_defaults():
+    """What a fresh install starts with (chosen from the settings window, October 2026)."""
+    d = settings.defaults()
+    assert (d["topmost"], d["show_name"], d["reset_on_char"], d["check_updates"], d["reads_per_sec"]) == (True, True, True, True, 10)
+    assert (d["rate_on"], d["rate_dim"]) == ([True] * 4, True)
+    assert (d["text_color"], d["accent"], d["font_scale"], d["text_shadow"]) == ("#5ec8f2", "#5ec8f2", 1.0, True)
+    assert (d["bg_opacity"], d["fg_opacity"], d["number_format"]) == (0.85, 1.0, "da")
+    assert (d["graph"], d["mode"], d["graph_rate_minutes"], d["graph_avg"], d["graph_style"]) == (False, "rate", 5, True, "line")
+    assert (d["graph_width"], d["graph_opacity"], d["graph_fill"], d["fill_opacity"]) == (1, 0.5, True, 0.05)
+    assert (d["discord_levelups"], d["discord_screenshot"], d["discord_sessions"], d["discord_presence"]) == (True, False, False, False)
+    assert (d["presence_on"], d["presence_minutes"], d["presence_kind"]) == ([True, True], [0, 5], ["exp_gain", "exp_h"])
