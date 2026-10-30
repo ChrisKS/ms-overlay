@@ -23,6 +23,7 @@ class Tracker:
         self.t0 = None; self.last = None; self.cand = None
         self.first = None           # first accepted (level, exp, pct) of the session
         self.t_first = None         # time of the first EXP gain: the rate clock starts here
+        self.t_counted = None       # time of the first gain after that: the first one rates count
         self.points = []            # (t, cum_exp, cum_pct) on every change
         self.cum_exp = 0; self.cum_pct = 0.0
         self.req = {}               # level -> (best_pct, estimated EXP needed)
@@ -70,8 +71,9 @@ class Tracker:
         self.cum_pct += ((lvl + pct / 100) - (pl + pp / 100)) * 100
         self.last = reading
         self.points.append((t, self.cum_exp, self.cum_pct))
-        if self.t_first is None and (d != 0):
-            self.t_first = t
+        if d != 0:
+            if self.t_first is None: self.t_first = t
+            elif self.t_counted is None: self.t_counted = t
         return True
 
     def skip_gap(self):
@@ -95,11 +97,12 @@ class Tracker:
 
     def rate(self, now, win):
         """(exp/hour, pct/hour, window_is_full) over the last `win` seconds (0 = whole session).
-        A window longer than the session uses the session so far."""
-        if self.t_first is None:
+        A window longer than the session uses the session so far. None until a gain has been
+        counted: the first gain only starts the clock, since how long it took is unknown."""
+        if self.t_counted is None:
             return None
         start, span = self.window(now, win)
-        if span < 8:
+        if span <= 0:
             return None
         if win <= 0: win = WHOLE
         return ((self.cum_exp - self.value_at(start, 1)) / span * 3600,
