@@ -113,3 +113,28 @@ def test_update_notice_shows_and_opens_only_the_release_page(overlay, monkeypatc
     ov.updates.available = ("v9.9.9", "https://example.com/evil")
     ov.open_update()
     assert len(opened) == 1                                     # never a page outside the repository
+
+
+def test_settings_window_stays_above_the_overlay(overlay):
+    ov = overlay
+    ov.open_settings()
+    sw = ov.settings_win.win
+    def on_top():
+        for _ in range(3): ov.root.update()
+        return not any(int(ov.root.tk.call("wm", "stackorder", str(sw), "isbelow", str(w))) for w in ov.layers)
+    assert on_top()
+    ov.S["accent"] = "#a78bfa"; ov.apply()          # any settings change
+    assert on_top()
+    ov.fg.lift(); ov.fix_stack()                     # something else raised the overlay
+    assert on_top()
+
+
+def test_always_on_top_is_only_reapplied_when_it_changes(overlay, monkeypatch):
+    ov, calls = overlay, []
+    for w in ov.layers:
+        orig = w.attributes
+        monkeypatch.setattr(w, "attributes", lambda *a, orig=orig: (calls.append(a), orig(*a))[1])
+    ov.apply()
+    assert not [c for c in calls if c[0] == "-topmost"]
+    ov.S["topmost"] = False; ov.apply()
+    assert [c for c in calls if c[0] == "-topmost"] == [("-topmost", False)] * 4
