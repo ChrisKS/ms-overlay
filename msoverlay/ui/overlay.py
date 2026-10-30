@@ -39,6 +39,7 @@ class Overlay:
         self.name_seen = False
         self.job = None             # read from the status bar; None until it reads as a real job
         self.acc = self.acc_fill = None
+        self._topmost = None        # the "always on top" state last given to the layers
         self.c_fg = self.c_label = self.c_sub = self.c_faint = FG
 
         # Four stacked, borderless windows so each part can have its own opacity (Windows can only
@@ -86,8 +87,10 @@ class Overlay:
         tc = S["text_color"]                           # text colour + brightness steps derived from it
         self.c_fg, self.c_label, self.c_sub, self.c_faint = tc, mix(tc, BG, 0.80), mix(tc, BG, 0.62), mix(tc, BG, 0.38)
         alphas = (S["bg_opacity"], S["fill_opacity"], S["graph_opacity"], S["fg_opacity"])
+        if self._topmost != S["topmost"]:      # re-applying it raises the overlay above the settings window
+            self._topmost = S["topmost"]
+            for w in self.layers: w.attributes("-topmost", self._topmost)
         for w, alpha in zip(self.layers, alphas):
-            w.attributes("-topmost", bool(S["topmost"]))
             try: w.attributes("-alpha", float(alpha))
             except tk.TclError: pass
         self.fix_stack()
@@ -115,10 +118,13 @@ class Overlay:
         return (self.root.winfo_screenwidth() - self.W) // 2, 40
 
     def fix_stack(self):
-        """Keep the layers in order: background < fill < line < text. Windows can reorder topmost
-        windows (e.g. when the settings window closes or another app grabs focus), which would hide
-        the text under the background - so re-assert the order whenever it is wrong."""
+        """Keep the layers in order: background < fill < line < text, and the settings window
+        above them all. Windows can reorder topmost windows (e.g. when the settings window closes
+        or another app grabs focus), which would hide the text under the background or the
+        settings under the overlay - so re-assert the order whenever it is wrong."""
         L = self.layers
+        if self.settings_win is not None and self.settings_win.exists():
+            L = L + [self.settings_win.win]
         for lo, hi in zip(L, L[1:]):
             try:
                 if int(self.root.tk.call("wm", "stackorder", str(lo), "isabove", str(hi))):
