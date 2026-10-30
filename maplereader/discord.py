@@ -15,6 +15,9 @@ from .tracker import WHOLE, eta_seconds
 
 USER_AGENT = "MapleReader (https://github.com/ChrisKS/ms-overlay)"
 WEBHOOK_RE = re.compile(r"https://(?:(?:ptb|canary)\.)?discord(?:app)?\.com/api/webhooks/\d+/[\w-]+")
+# MapleReader's own Discord application: what profiles show after "Playing" (not a secret; every
+# Rich Presence app ships its ID). A user can set their own in the settings instead.
+APP_ID = "1565725885989003434"
 SUMMARY_MIN = 300                # a session needs this many seconds since its first EXP gain to be posted
 SCREENSHOT_DELAY = 1.0           # seconds after a level-up before the game is captured (the effect shows)
 IMAGE_NAME = "maplestory.jpg"
@@ -266,19 +269,23 @@ class DiscordLink:
             msg = session_summary(self.S["name"], session, self.S["accent"])
             if msg: self._send(msg, wait=wait)
 
+    def app_id(self):
+        """The application presence is shown under: the user's own if set, else MapleReader's."""
+        return self.S["discord_app_id"] or APP_ID
+
     def presence_on(self):
-        return self.S["discord_presence"] and self.S["discord_app_id"].isdigit()
+        return self.S["discord_presence"] and self.app_id().isdigit()
 
     def update_presence(self, session, now):
         on = self.presence_on()
-        self.presence.set(self.S["discord_app_id"] if on else None,
+        self.presence.set(self.app_id() if on else None,
                           presence_activity(session, now) if on else None)
 
     def presence_status(self):
         """One line for the settings window."""
         st = self.presence.status
         if not self.S["discord_presence"]: return "Off."
-        if not self.presence_on(): return "Paste your Application ID above (it's a long number)."
+        if not self.presence_on(): return "That Application ID isn't valid: it's a long number (or leave it empty)."
         if st == "off": return "Connecting\u2026"
         if st == "connected":
             return "Connected. " + ("Showing your level." if self.presence.activity else

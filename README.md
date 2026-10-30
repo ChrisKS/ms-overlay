@@ -281,21 +281,22 @@ message** attaches a screenshot too, so you can check what would be shared.
 Rich Presence shows what you're doing on your Discord profile and in the member list:
 
 ```
-Playing MapleStory
+Playing MapleReader
 Lv 143 · 0,31%
 7,64M EXP/h · level in 5h 12m
 00:42:17 elapsed
 ```
 
-It talks to the Discord desktop app running on the same computer, so Discord must be open.
-Discord shows the name of a Discord *application* after "Playing", so you need to create one
-once:
+Turn on **Show on my Discord profile** in **Settings → Discord**; nothing else is needed. The
+status line below it says whether it's connected. It talks to the Discord desktop app running
+on the same computer, so Discord must be open.
 
-1. Go to [discord.com/developers/applications](https://discord.com/developers/applications)
-   and click **New Application**. Name it what you want shown, for example `MapleStory`.
-2. Copy its **Application ID**, a long number on the *General Information* page.
-3. In **Settings → Discord**, turn on **Show on my Discord profile** and paste the ID. The
-   status line below it says whether it's connected.
+Discord shows the name of a Discord *application* after "Playing". MapleReader has its own
+application built in, like games do. To show a different name, create your own application at
+[discord.com/developers/applications](https://discord.com/developers/applications) (**New
+Application**, named what you want shown), copy its **Application ID** from the *General
+Information* page, and paste it into **Own Application ID**. Leave that field empty to use
+MapleReader's.
 
 Details:
 
@@ -372,7 +373,7 @@ transparent windows stacked together, so each one can fade on its own.
 - **Reset session now** and **Reset window position**. The default position is centred at the
   top of the main screen.
 - **Restore default settings** resets everything except the character name, the window
-  position, and the Discord webhook URL and Application ID.
+  position, and the Discord webhook URL and own Application ID.
 
 ### Discord
 
@@ -383,7 +384,7 @@ transparent windows stacked together, so each one can fade on its own.
 | Attach a screenshot of the game to level-up posts | Off | See [Screenshots with level-ups](#screenshots-with-level-ups). |
 | Post a summary when a session ends | On | Only once a webhook URL is set, and only for sessions of 5+ minutes. |
 | Show on my Discord profile | Off | See [Profile status](#profile-status-rich-presence). |
-| Application ID | Empty | The ID of your Discord application. |
+| Own Application ID | Empty | Optional: your own Discord application, to show another name after "Playing". Empty uses MapleReader's. |
 
 ---
 
@@ -549,5 +550,5 @@ Gatekeeper asks before the first launch (see [Quick start](#macos-apple-silicon)
 | Rates reset by themselves | The character name changed. You can turn off *Start a new session when the character changes*. |
 | Discord: `Couldn't post: the webhook was deleted.` | Someone deleted the webhook in Discord. Create a new one and paste its URL. |
 | Discord: `Not connected: Discord isn't running.` | Rich Presence needs the Discord desktop app open on the same computer. The browser version won't work. |
-| Discord: `Not connected: …` with another reason | Check that the Application ID is the number from your application's *General Information* page. |
+| Discord: `Not connected: …` with another reason | If you set an own Application ID, check it's the number from your application's *General Information* page, or clear it to use MapleReader's. |
 | Overlay hidden behind the game | Turn on *Always on top*, and run the game in windowed or borderless mode. Exclusive fullscreen can cover overlays. |
