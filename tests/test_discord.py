@@ -91,8 +91,12 @@ def test_presence_activity():
     fmt.set_style("da")
     ses = a_session()
     act = discord.presence_activity(ses, time.time())
-    assert act["details"] == "Lv 142 · 97,50%" and act["state"].startswith("6M EXP/h")
+    assert act["details"] == "Lv 142 · 97,50%" and act["state"].startswith("EXP/H 6M · LEVEL IN ")
     assert act["timestamps"]["start"] == int(ses.tracker.t0 * 1000)
+    act = discord.presence_activity(ses, time.time(), [(300, "kills"), (0, "pct_gain")])   # chosen columns
+    assert act["state"] == "KILLS 20 · % GAINED +2,44%"      # (the first gain only starts the clock)
+    assert "state" not in discord.presence_activity(ses, time.time(), [])                  # none chosen
+    assert discord.presence_activity(Session(), time.time()) is None
     ses.toggle_pause()
     act = discord.presence_activity(ses, time.time())
     assert act["state"] == "Paused" and "timestamps" not in act
@@ -143,6 +147,8 @@ def test_presence_status_lines():
     assert link.app_id() == discord.APP_ID and link.presence_on()          # works without any setup
     s["discord_app_id"] = "123"
     assert link.app_id() == "123"
+    s.update(presence_on=[False, True], presence_kind=["exp_h", "kills"], presence_minutes=[15, 5])
+    assert settings.enabled_columns(s, "presence") == [(300, "kills")]   # what the presence line shows
     s["discord_app_id"] = "my app"
     assert not link.presence_on() and link.presence_status().startswith("That Application ID isn't valid")
 

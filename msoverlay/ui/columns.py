@@ -11,15 +11,16 @@ def header(kind, win):
     return f"{KINDS[kind][0]} · " + (f"{win // 60}M" if win else "SESSION")
 
 
-def value(tracker, kind, now, win, cur_pct=None):
-    """(text, window_is_full) for one column, or None if there is not enough data yet."""
+def value(tracker, kind, now, win, cur_pct=None, num=fmt.num):
+    """(text, window_is_full) for one column, or None if there is not enough data yet. `num`
+    formats EXP amounts (fmt.short where space is tight)."""
     r = tracker.rate(now, win)
     if r is None:
         return None
     eh, ph, full = r
     start, span = tracker.window(now, win)
-    if kind == "exp_h":      t = fmt.num(eh)
-    elif kind == "exp_gain": t = "+" + fmt.num(eh * span / 3600)
+    if kind == "exp_h":      t = num(eh)
+    elif kind == "exp_gain": t = "+" + num(eh * span / 3600)
     elif kind == "pct_h":    t = fmt.pct(ph, 1)
     elif kind == "pct_gain": t = "+" + fmt.pct(ph * span / 3600, 2)
     elif kind == "eta":
@@ -28,7 +29,17 @@ def value(tracker, kind, now, win, cur_pct=None):
     elif kind == "kills":    t = str(tracker.gains(start))
     elif kind == "avg":
         n = tracker.gains(start)
-        t = fmt.num(eh * span / 3600 / n) if n else fmt.DASH
-    else: t = fmt.num(eh)
+        t = num(eh * span / 3600 / n) if n else fmt.DASH
+    else: t = num(eh)
     if tracker.approx and kind in APPROX_KINDS: t = "~" + t
     return t, full
+
+
+def line(tracker, cols, now, cur_pct=None, sep=" \u00b7 "):
+    """Several columns on one line of text, e.g. 'EXP/H 7,64M · LEVEL IN 5:12:00', with compact
+    numbers. `cols`: [(window, kind)]. Columns without enough data yet are left out; '' if none."""
+    parts = []
+    for win, kind in cols:
+        v = value(tracker, kind, now, win, cur_pct, num=fmt.short)
+        if v: parts.append(f"{KINDS[kind][0]} {v[0]}")
+    return sep.join(parts)

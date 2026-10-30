@@ -28,6 +28,8 @@ DEFAULTS = dict(
     # discord
     discord_webhook="", discord_levelups=True, discord_screenshot=False, discord_sessions=False,
     discord_presence=False, discord_app_id="",
+    # the presence's second line: column slots like the rate columns'
+    presence_minutes=[15, 15], presence_on=[True, True], presence_kind=["exp_h", "eta"],
 )
 # kept by "Restore default settings": not preferences, but who you are and what you connected
 KEEP_ON_RESTORE = ("name", "x", "y", "discord_webhook", "discord_app_id")
@@ -69,18 +71,35 @@ def _color(v, default):
     return v if isinstance(v, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", v) else default
 
 
-def _four(v, default):
-    """one of the per-column lists, or the default if it isn't a list of four"""
-    return v if isinstance(v, list) and len(v) == 4 else default
+# Sets of column slots, each kept as three lists in the settings: <prefix>_on, _minutes, _kind.
+# -> (number of slots, whether at least one must stay on)
+COLUMN_SETS = {"rate": (4, True), "presence": (2, False)}
+
+
+def _column_slots(s, prefix):
+    """Validate one set of column slots in place (lists of the right length, minutes 0-720, known
+    kinds), falling back to the defaults for anything malformed."""
+    n, need_one = COLUMN_SETS[prefix]
+    def lst(name):
+        v, d = s.get(f"{prefix}_{name}"), DEFAULTS[f"{prefix}_{name}"]
+        return (v, d) if isinstance(v, list) and len(v) == n else (d, d)
+    mins, d = lst("minutes")
+    s[f"{prefix}_minutes"] = [int(_num(x, 0, 720, d[i])) for i, x in enumerate(mins)]
+    s[f"{prefix}_on"] = [bool(x) for x in lst("on")[0]]
+    if need_one and not any(s[f"{prefix}_on"]): s[f"{prefix}_on"][0] = True
+    s[f"{prefix}_kind"] = [k if k in KINDS else "exp_h" for k in lst("kind")[0]]
+
+
+def enabled_columns(s, prefix):
+    """[(window in seconds, kind)] of the slots that are switched on, in order."""
+    return [(m * 60, k) for m, k, on in zip(s[f"{prefix}_minutes"], s[f"{prefix}_kind"], s[f"{prefix}_on"]) if on]
 
 
 def sanitize(s):
     """Make every value valid (in place) and return the same dict."""
     d = DEFAULTS
-    s["rate_minutes"] = [int(_num(x, 0, 720, d["rate_minutes"][i])) for i, x in enumerate(_four(s.get("rate_minutes"), d["rate_minutes"]))]
-    s["rate_on"] = [bool(x) for x in _four(s.get("rate_on"), d["rate_on"])]
-    if not any(s["rate_on"]): s["rate_on"][0] = True
-    s["rate_kind"] = [k if k in KINDS else "exp_h" for k in _four(s.get("rate_kind"), d["rate_kind"])]
+    for prefix in COLUMN_SETS:
+        _column_slots(s, prefix)
     s["bg_opacity"] = _num(s.get("bg_opacity"), 0.0, 1.0, 1.0)
     s["fg_opacity"] = _num(s.get("fg_opacity"), 0.2, 1.0, 1.0)
     s["reads_per_sec"] = int(_num(s.get("reads_per_sec"), 2, 20, 10))
