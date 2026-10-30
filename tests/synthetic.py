@@ -1,7 +1,7 @@
 """Draws a fake MapleStory status bar with the game's own 5x7 glyphs, for testing the reader."""
 import numpy as np
 
-from maplereader import ocr
+from msoverlay import ocr
 
 GREEN, WHITE = (153, 204, 51), (255, 255, 255)
 GLYPH = {ch: key for ch, key in ocr.BUILTIN_GLYPHS.items()}

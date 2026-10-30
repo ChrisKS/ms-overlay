@@ -1,9 +1,9 @@
 """The session clock and what the session reports, driven with a fake wall clock."""
 import pytest
 
-from maplereader import session as session_mod
-from maplereader.session import FAIL_AFTER, Session, different_character
-from maplereader.tracker import WHOLE
+from msoverlay import session as session_mod
+from msoverlay.session import FAIL_AFTER, Session, different_character
+from msoverlay.tracker import WHOLE
 
 
 class Clock:

@@ -1,4 +1,4 @@
-# MapleReader (ms-overlay)
+# ms-overlay
 
 A small always-on-top overlay that reads your **Level, EXP and EXP %** from the MapleStory
 status bar and shows how fast you're gaining EXP: EXP per hour over several time windows, time
@@ -28,27 +28,27 @@ the game. It only uses the network if you turn on the Discord features.
 ## Quick start
 
 Each [release](https://github.com/ChrisKS/ms-overlay/releases) has two zips:
-`MapleReader-windows-<version>.zip` and `MapleReader-macos-<version>.zip`.
+`ms-overlay-windows-<version>.zip` and `ms-overlay-macos-<version>.zip`.
 
 ### Windows
 
-1. Unzip `MapleReader-windows-<version>.zip` anywhere.
-2. Run `maple_reader.exe`. No install is needed: Tesseract OCR is bundled in the `tesseract`
+1. Unzip `ms-overlay-windows-<version>.zip` anywhere.
+2. Run `ms-overlay.exe`. No install is needed: Tesseract OCR is bundled in the `tesseract`
    folder next to the exe.
 
 ### macOS (Apple Silicon)
 
-1. Unzip `MapleReader-macos-<version>.zip` and move `MapleReader.app` to Applications.
+1. Unzip `ms-overlay-macos-<version>.zip` and move `ms-overlay.app` to Applications.
    Tesseract OCR is bundled inside the app.
 2. The app isn't signed with an Apple Developer ID, so macOS blocks the first launch. Open it
    once, then go to **System Settings → Privacy & Security** and click **Open Anyway**. You can
    instead run this once in Terminal:
 
    ```bash
-   xattr -dr com.apple.quarantine /Applications/MapleReader.app
+   xattr -dr com.apple.quarantine /Applications/ms-overlay.app
    ```
 
-3. Allow **Screen Recording** for MapleReader in **System Settings → Privacy & Security**, then
+3. Allow **Screen Recording** for ms-overlay in **System Settings → Privacy & Security**, then
    quit and reopen it. Without this permission macOS only lets it see the desktop background,
    so the status bar is never found. Each new version needs this permission again.
 
@@ -230,7 +230,7 @@ anywhere until you set them up.
 
 ### Channel posts (webhook)
 
-MapleReader can post to a Discord channel through a webhook. A webhook lets an app post to one
+ms-overlay can post to a Discord channel through a webhook. A webhook lets an app post to one
 channel. It needs no bot and no Discord login.
 
 1. In Discord, open the channel's settings: **Edit Channel → Integrations → Webhooks → New
@@ -291,13 +291,13 @@ Turn on **Show on my Discord profile** in **Settings → Discord**; nothing else
 status line below it says whether it's connected. It talks to the Discord desktop app running
 on the same computer, so Discord must be open.
 
-Discord shows the name of a Discord *application* after "Playing". MapleReader has its own
+Discord shows the name of a Discord *application* after "Playing". ms-overlay has its own
 application built in, like games do, so profiles show its name (currently *ms-overlay*; the
-name is set in Discord's developer portal, not in MapleReader). To show a different name, create your own application at
+name is set in Discord's developer portal, not in ms-overlay). To show a different name, create your own application at
 [discord.com/developers/applications](https://discord.com/developers/applications) (**New
 Application**, named what you want shown), copy its **Application ID** from the *General
 Information* page, and paste it into **Own Application ID**. Leave that field empty to use
-MapleReader's.
+ms-overlay's.
 
 Details:
 
@@ -307,7 +307,7 @@ Details:
 - If the status bar hasn't been read for a minute (the game is closed, for example), the status
   is cleared until it's read again.
 - Discord accepts at most one update every 15 seconds, so the numbers lag a little.
-- If Discord isn't running, MapleReader keeps trying every 15 seconds in the background.
+- If Discord isn't running, ms-overlay keeps trying every 15 seconds in the background.
 
 ---
 
@@ -385,15 +385,15 @@ transparent windows stacked together, so each one can fade on its own.
 | Attach a screenshot of the game to level-up posts | Off | See [Screenshots with level-ups](#screenshots-with-level-ups). |
 | Post a summary when a session ends | On | Only once a webhook URL is set, and only for sessions of 5+ minutes. |
 | Show on my Discord profile | Off | See [Profile status](#profile-status-rich-presence). |
-| Own Application ID | Empty | Optional: your own Discord application, to show another name after "Playing". Empty uses MapleReader's. |
+| Own Application ID | Empty | Optional: your own Discord application, to show another name after "Playing". Empty uses ms-overlay's. |
 
 ---
 
 ## Files it creates
 
-On Windows these are written **next to `maple_reader.exe`**. The macOS app writes them to
-**`~/Library/Application Support/MapleReader`**, because the app's own folder has to stay
-unchanged. When run from source, they're written next to `maple_reader.py`.
+On Windows these are written **next to `ms-overlay.exe`**. The macOS app writes them to
+**`~/Library/Application Support/ms-overlay`**, because the app's own folder has to stay
+unchanged. When run from source, they're written next to `ms_overlay.py`.
 
 | File | Contents |
 |---|---|
@@ -409,7 +409,7 @@ session.
 ## Command line
 
 ```bash
-maple_reader.exe [--image FILE] [--debug] [--demo]
+ms-overlay.exe [--image FILE] [--debug] [--demo]
 ```
 
 | Option | Effect |
@@ -419,8 +419,8 @@ maple_reader.exe [--image FILE] [--debug] [--demo]
 | `--debug` | Save the level OCR crops to `./debug`. |
 | `--demo` | Run the overlay with fake, slowly rising EXP, to preview the UI without the game. |
 
-From source, use `python maple_reader.py …` or `python -m maplereader …` instead. For the macOS app, run
-`/Applications/MapleReader.app/Contents/MacOS/MapleReader …` from Terminal.
+From source, use `python ms_overlay.py …` or `python -m msoverlay …` instead. For the macOS app, run
+`/Applications/ms-overlay.app/Contents/MacOS/ms-overlay …` from Terminal.
 
 ---
 
@@ -435,7 +435,7 @@ pip install -r requirements.txt
 ```
 
 ```bash
-python maple_reader.py
+python ms_overlay.py
 ```
 
 Tesseract is looked for in a `tesseract` folder next to the script, then in
@@ -444,8 +444,8 @@ Tesseract is looked for in a `tesseract` folder next to the script, then in
 
 ### Project layout
 
-The code is the `maplereader` package. `maple_reader.py` only starts it, so the build scripts
-and `python maple_reader.py` keep working.
+The code is the `msoverlay` package. `ms_overlay.py` only starts it, so the build scripts
+and `python ms_overlay.py` keep working.
 
 | Module | What it does |
 |---|---|
@@ -496,9 +496,9 @@ build.bat
 2. Downloads the UB-Mannheim Tesseract 5.4 installer and **unpacks** it with 7-Zip instead of
    installing it. If 7-Zip isn't installed, it's unpacked from its MSI too. No admin rights are
    needed.
-3. Builds a single-file, windowless `maple_reader.exe` with PyInstaller.
+3. Builds a single-file, windowless `ms-overlay.exe` with PyInstaller.
 4. Trims Tesseract down to `tesseract.exe` and the `eng`/`osd` language data.
-5. Zips the exe and the `tesseract` folder into `MapleReader.zip`.
+5. Zips the exe and the `tesseract` folder into `ms-overlay.zip`.
 
 ### Build the release zip (macOS)
 
@@ -516,8 +516,8 @@ Needs Python 3.10+ and [Homebrew](https://brew.sh).
    anything still points at Homebrew.
 3. Keeps only the `eng`/`osd` language data, and ad-hoc signs the rewritten binaries. Apple
    Silicon won't run unsigned code.
-4. Builds `MapleReader.app` with PyInstaller and puts Tesseract in its `Contents/Resources`.
-5. Ad-hoc signs the app, checks the signature, and zips it into `MapleReader-mac.zip`.
+4. Builds `ms-overlay.app` with PyInstaller and puts Tesseract in its `Contents/Resources`.
+5. Ad-hoc signs the app, checks the signature, and zips it into `ms-overlay-mac.zip`.
 
 The app is built for the Mac's own architecture. It's ad-hoc signed only, not notarized, so
 Gatekeeper asks before the first launch (see [Quick start](#macos-apple-silicon)).
@@ -530,11 +530,11 @@ Gatekeeper asks before the first launch (see [Quick start](#macos-apple-silicon)
 `macos-latest` (Apple Silicon) at the same time:
 
 - **Pushing a `v*` tag**, e.g. `git tag v1.0.0 && git push --tags`, builds
-  `MapleReader-windows-v1.0.0.zip` and `MapleReader-macos-v1.0.0.zip`. Once both builds
+  `ms-overlay-windows-v1.0.0.zip` and `ms-overlay-macos-v1.0.0.zip`. Once both builds
   succeed, it publishes them together as one GitHub release with auto-generated notes. If the
   tests or either build fail, nothing is published.
-- **Running the workflow manually** from the Actions tab builds `MapleReader-windows-dev.zip`
-  and `MapleReader-macos-dev.zip` and only uploads them as workflow artifacts.
+- **Running the workflow manually** from the Actions tab builds `ms-overlay-windows-dev.zip`
+  and `ms-overlay-macos-dev.zip` and only uploads them as workflow artifacts.
 
 ---
 
@@ -546,10 +546,10 @@ Gatekeeper asks before the first launch (see [Quick start](#macos-apple-silicon)
 | `unreadable digit` | A glyph in the EXP/% text didn't match. This is most likely a `5` whose shape differs from the built-in guess. It usually fixes itself once every other digit has been seen. |
 | `can't read status bar` | The bar was found, but the level, EXP or % couldn't be read. Try `--debug` and check `debug/level_proc.png`. |
 | `capture error` | Screen capture failed, for example because the screen is locked or a secure desktop is showing. |
-| Mac: `status bar not found` while the game is visible | Allow MapleReader under *Screen Recording* in System Settings → Privacy & Security, then quit and reopen it. Each new version needs this again. |
+| Mac: `status bar not found` while the game is visible | Allow ms-overlay under *Screen Recording* in System Settings → Privacy & Security, then quit and reopen it. Each new version needs this again. |
 | Values show `~` | A level-up was estimated. See [Level-ups](#level-ups). |
 | Rates reset by themselves | The character name changed. You can turn off *Start a new session when the character changes*. |
 | Discord: `Couldn't post: the webhook was deleted.` | Someone deleted the webhook in Discord. Create a new one and paste its URL. |
 | Discord: `Not connected: Discord isn't running.` | Rich Presence needs the Discord desktop app open on the same computer. The browser version won't work. |
-| Discord: `Not connected: …` with another reason | If you set an own Application ID, check it's the number from your application's *General Information* page, or clear it to use MapleReader's. |
+| Discord: `Not connected: …` with another reason | If you set an own Application ID, check it's the number from your application's *General Information* page, or clear it to use ms-overlay's. |
 | Overlay hidden behind the game | Turn on *Always on top*, and run the game in windowed or borderless mode. Exclusive fullscreen can cover overlays. |

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds MapleReader-mac.zip: MapleReader.app with a bundled, relocatable Tesseract.
+# Builds ms-overlay-mac.zip: ms-overlay.app with a bundled, relocatable Tesseract.
 # Run on macOS. Needs Python 3.10+ and Homebrew (Tesseract and dylibbundler are installed with it).
 # The app is ad-hoc signed only (no Apple Developer ID), so Gatekeeper asks before the first launch.
 set -euo pipefail
@@ -7,8 +7,8 @@ cd "$(dirname "$0")"
 
 BUILD="$PWD/build"
 TESS="$BUILD/tesseract"
-APP="$BUILD/dist/MapleReader.app"
-ZIP="$PWD/MapleReader-mac.zip"
+APP="$BUILD/dist/ms-overlay.app"
+ZIP="$PWD/ms-overlay-mac.zip"
 PYTHON="${PYTHON:-python3}"
 
 command -v brew >/dev/null || { echo "Homebrew not found." >&2; exit 1; }
@@ -41,9 +41,9 @@ TESSDATA_PREFIX="$TESS/tessdata" "$TESS/tesseract" --list-langs
 
 echo "==> Building app with PyInstaller"
 rm -rf "$BUILD/dist"
-"$PYTHON" -m PyInstaller --windowed --noconfirm --name MapleReader \
-    --osx-bundle-identifier io.github.chrisks.maplereader \
-    --distpath "$BUILD/dist" --workpath "$BUILD/pyi" --specpath "$BUILD" maple_reader.py
+"$PYTHON" -m PyInstaller --windowed --noconfirm --name ms-overlay \
+    --osx-bundle-identifier io.github.chrisks.ms-overlay \
+    --distpath "$BUILD/dist" --workpath "$BUILD/pyi" --specpath "$BUILD" ms_overlay.py
 [ -d "$APP" ] || { echo "PyInstaller build failed." >&2; exit 1; }
 
 echo "==> Adding Tesseract to the app"

@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from maplereader import ocr
+from msoverlay import ocr
 from tests.synthetic import status_bar
 
 

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from maplereader.tracker import WHOLE, Tracker, eta_seconds
+from msoverlay.tracker import WHOLE, Tracker, eta_seconds
 
 
 def feed(tr, t, lvl, exp, pct):
