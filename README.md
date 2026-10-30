@@ -247,12 +247,12 @@ It posts:
 - **Level-ups:** "Mapler (Hero) reached level 143! 🎉". The job is left out until it has been
   read. Each level is posted once per run, even if the level is briefly misread. A level-up only
   counts if the new level starts below 50%. Optionally with a screenshot of the game; see below.
-- **Session summaries:** time, EXP gained, average EXP/h, level (e.g. `142 → 143 (0,31%)`),
-  level % gained and kills. A summary is posted when a session ends: when you reset it, when
-  the character changes, or when you quit. Sessions with less than 5 minutes since the first
-  EXP gain aren't posted.
+- **Session summaries** (off by default): time, EXP gained, average EXP/h, level (e.g.
+  `142 → 143 (0,31%)`), level % gained and kills. A summary is posted when a session ends: when
+  you reset it, when the character changes, or when you quit. Sessions with less than 5
+  minutes since the first EXP gain aren't posted.
 
-Both can be turned off separately. `--demo` never posts, except the test message. If a post
+Each can be turned on or off separately. `--demo` never posts, except the test message. If a post
 fails (no internet, or the webhook was deleted), the reason is shown next to the test button.
 
 The webhook URL is hidden in the settings window because anyone who has it can post to that
@@ -268,14 +268,22 @@ window itself is captured, not the area of the screen where it is, so nothing co
 game (the overlay, notifications, other windows) and nothing around it can be in the picture:
 
 - **Windows:** the window of the `MapleStory.exe` process, drawn by Windows on its own,
-  without the title bar.
+  without the title bar. The game runs as administrator and is guarded by anti-cheat, so its
+  process may refuse to say its name; the window is then recognised by its window class,
+  `MapleStoryClass`, which any program can read.
 - **macOS:** the window of the app named MapleStory, captured on its own. A browser tab or
   other window merely *titled* MapleStory never matches.
 
-If the game window can't be found or captured on its own (minimised, or exclusive fullscreen,
-which captures as black), the post goes without a picture and the status next to the test
-button says so. It never falls back to capturing the screen. Other platforms never attach a
-picture.
+If the game window can't be found or captured on its own, the post goes without a picture
+and the status next to the test button says which step failed: no MapleStory window found,
+the window is minimised, Windows wouldn't let ms-overlay draw it, or it came back black
+(exclusive fullscreen). It never falls back to capturing the screen. Other platforms never
+attach a picture.
+
+To find out what's going on, run `ms-overlay.exe --capture-test` with the game open. It tries
+one screenshot right away, shows the result, and saves `capture_test.txt` (what it found:
+every window mentioning Maple, with its class and process) and, if it worked,
+`capture_test.png` in the data folder.
 
 The picture shows whatever the game shows, chat included. With the option on, **Send test
 message** attaches a screenshot too, so you can check what would be shared.
@@ -408,7 +416,7 @@ transparent windows stacked together, so each one can fade on its own.
 | Webhook URL | Empty | See [Channel posts](#channel-posts-webhook). |
 | Post when you level up | On | Only once a webhook URL is set. |
 | Attach a screenshot of the game to level-up posts | Off | See [Screenshots with level-ups](#screenshots-with-level-ups). |
-| Post a summary when a session ends | On | Only once a webhook URL is set, and only for sessions of 5+ minutes. |
+| Post a summary when a session ends | Off | Only once a webhook URL is set, and only for sessions of 5+ minutes. |
 | Show on my Discord profile | Off | See [Profile status](#profile-status-rich-presence). |
 | Own Application ID | Empty | Optional: your own Discord application, to show another name after "Playing". Empty uses ms-overlay's. |
 
@@ -443,6 +451,7 @@ ms-overlay.exe [--image FILE] [--debug] [--demo]
 | `--image FILE` | Read one screenshot, print the result (level, EXP, %, name, raw text) and exit. Prints `status bar not found` if there's no bar. Useful for testing the reader. |
 | `--debug` | Save the level OCR crops to `./debug`. |
 | `--demo` | Run the overlay with fake, slowly rising EXP, to preview the UI without the game. |
+| `--capture-test` | Try one screenshot of the game window and show what happened; saves a report (and the picture) in the data folder. See [Screenshots with level-ups](#screenshots-with-level-ups). |
 
 From source, use `python ms_overlay.py …` or `python -m msoverlay …` instead. For the macOS app, run
 `/Applications/ms-overlay.app/Contents/MacOS/ms-overlay …` from Terminal.
@@ -577,6 +586,7 @@ Gatekeeper asks before the first launch (see [Quick start](#macos-apple-silicon)
 | Values show `~` | A level-up was estimated. See [Level-ups](#level-ups). |
 | Rates reset by themselves | The character name changed. You can turn off *Start a new session when the character changes*. |
 | Discord: `Couldn't post: the webhook was deleted.` | Someone deleted the webhook in Discord. Create a new one and paste its URL. |
+| Discord: `(no screenshot: …)` | The reason names the step that failed. Run `ms-overlay.exe --capture-test` with the game open for details. If Windows wouldn't let ms-overlay draw the game, try running ms-overlay as administrator, like the game. |
 | Discord: `Not connected: Discord isn't running.` | Rich Presence needs the Discord desktop app open on the same computer. The browser version won't work. |
 | Discord: `Not connected: …` with another reason | If you set an own Application ID, check it's the number from your application's *General Information* page, or clear it to use ms-overlay's. |
 | Overlay hidden behind the game | Turn on *Always on top*, and run the game in windowed or borderless mode. Exclusive fullscreen can cover overlays. |

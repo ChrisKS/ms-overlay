@@ -113,7 +113,7 @@ def wait_for(cond, timeout=5):
 
 def test_link_posts_level_ups_once_and_summaries(webhook):
     url, posts = webhook
-    link, s, notes = link_for(url)
+    link, s, notes = link_for(url, discord_sessions=True)
     ses = a_session()
     link.level_up(143, "Hero"); link.level_up(143, "Hero"); link.level_up(142)
     wait_for(lambda: len(posts) == 1)
@@ -208,11 +208,13 @@ def test_screenshots_are_attached_only_when_turned_on_and_captured(webhook, monk
     img = Image.open(__import__("io").BytesIO(posts[1][2]))
     assert img.format == "JPEG" and img.size == (64, 36)
     assert posts[1][1]["embeds"][0]["image"] == {"url": "attachment://" + discord.IMAGE_NAME}
-    monkeypatch.setattr(discord.gamewindow, "capture", lambda: None)   # game window not capturable
+    def fail():
+        discord.gamewindow.last_problem = "no MapleStory window was found"
+    monkeypatch.setattr(discord.gamewindow, "capture", fail)   # game window not capturable
     link.level_up(152)
     wait_for(lambda: len(posts) == 3 and len(notes) == 3)
     assert posts[2][2] is None and "image" not in posts[2][1]["embeds"][0]
-    assert notes[-1].endswith("(no screenshot: the MapleStory window couldn't be captured)")
+    assert notes[-1].endswith("(no screenshot: no MapleStory window was found)")
 
 
 def test_test_message_previews_the_screenshot(webhook, monkeypatch):
@@ -223,3 +225,10 @@ def test_test_message_previews_the_screenshot(webhook, monkeypatch):
     link.test()
     wait_for(lambda: notes)
     assert posts[0][2] is not None and notes == ["Test message sent."]
+
+
+def test_session_summaries_are_off_by_default(webhook):
+    url, posts = webhook
+    link, s, notes = link_for(url)
+    link.session_ended(a_session(), wait=True)
+    assert not posts
