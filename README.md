@@ -25,16 +25,39 @@ the game, and never talks to the network.
 
 ## Quick start
 
-1. Download `MapleReader-<version>.zip` from the
-   [Releases](https://github.com/ChrisKS/ms-overlay/releases) page and unzip it anywhere.
+Each [release](https://github.com/ChrisKS/ms-overlay/releases) has two zips:
+`MapleReader-windows-<version>.zip` and `MapleReader-macos-<version>.zip`.
+
+### Windows
+
+1. Unzip `MapleReader-windows-<version>.zip` anywhere.
 2. Run `maple_reader.exe`. No install is needed: Tesseract OCR is bundled in the `tesseract`
    folder next to the exe.
-3. Start MapleStory. The game must be visible on screen with its HP/MP/EXP status bar showing.
-   The overlay finds the bar by itself on any monitor, at any position, and in windowed mode.
-4. Drag the overlay wherever you like. Right-click it for the menu.
 
-The overlay is built for Windows. Rounded corners, layered opacity and the bundled Tesseract
-are Windows-only.
+### macOS (Apple Silicon)
+
+1. Unzip `MapleReader-macos-<version>.zip` and move `MapleReader.app` to Applications.
+   Tesseract OCR is bundled inside the app.
+2. The app isn't signed with an Apple Developer ID, so macOS blocks the first launch. Open it
+   once, then go to **System Settings → Privacy & Security** and click **Open Anyway**. You can
+   instead run this once in Terminal:
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/MapleReader.app
+   ```
+
+3. Allow **Screen Recording** for MapleReader in **System Settings → Privacy & Security**, then
+   quit and reopen it. Without this permission macOS only lets it see the desktop background,
+   so the status bar is never found. Each new version needs this permission again.
+
+The macOS build only runs on Apple Silicon Macs (M1 and later), not on Intel Macs.
+
+### Then
+
+1. Start MapleStory. The game must be visible on screen with its HP/MP/EXP status bar showing.
+   The overlay finds the bar by itself on any monitor, at any position, and in windowed mode.
+2. Drag the overlay wherever you like. Right-click it for the menu. On a Mac, Control-click
+   works too.
 
 ---
 
@@ -100,7 +123,7 @@ Click the small chevron (`▾` / `▴`) at the bottom to open or close the graph
 | Left-drag | Move the overlay (unless *Lock position* is on). The position is saved. |
 | Click `▾` / `▴` | Show or hide the graph. |
 | Click `EXP` / `%` | Switch what the graph plots. |
-| Right-click | Menu: **Pause / Resume**, **Reset session**, **Settings…**, **Quit**. |
+| Right-click (or Control-click on a Mac) | Menu: **Pause / Resume**, **Reset session**, **Settings…**, **Quit**. |
 
 **Pause** stops all screen reading until you resume. **Reset session** clears every
 accumulated number and starts fresh.
@@ -224,7 +247,7 @@ transparent windows stacked together, so each one can fade on its own.
 ### Data
 
 - **Save every EXP change to `maple_log.csv`.** On by default.
-- **Open data folder** opens the folder with the exe, settings and log.
+- **Open data folder** opens the folder that holds the settings and log.
 - **Reset session now** and **Reset window position**. The default position is centred at the
   top of the main screen.
 - **Restore default settings** resets everything except the character name and the window
@@ -234,8 +257,9 @@ transparent windows stacked together, so each one can fade on its own.
 
 ## Files it creates
 
-All of these are written **next to `maple_reader.exe`**, or next to `maple_reader.py` when run
-from source.
+On Windows these are written **next to `maple_reader.exe`**. The macOS app writes them to
+**`~/Library/Application Support/MapleReader`**, because the app's own folder has to stay
+unchanged. When run from source, they're written next to `maple_reader.py`.
 
 | File | Contents |
 |---|---|
@@ -261,7 +285,8 @@ maple_reader.exe [--image FILE] [--debug] [--demo]
 | `--debug` | Save the level OCR crops to `./debug`. |
 | `--demo` | Run the overlay with fake, slowly rising EXP, to preview the UI without the game. |
 
-From source, use `python maple_reader.py …` instead.
+From source, use `python maple_reader.py …` instead. For the macOS app, run
+`/Applications/MapleReader.app/Contents/MacOS/MapleReader …` from Terminal.
 
 ---
 
@@ -280,7 +305,8 @@ python maple_reader.py
 ```
 
 Tesseract is looked for in a `tesseract` folder next to the script, then in
-`C:\Program Files\Tesseract-OCR\`, then on `PATH`.
+`C:\Program Files\Tesseract-OCR\` (Windows) or Homebrew's `/opt/homebrew/bin` and
+`/usr/local/bin` (macOS), then on `PATH`. On a Mac, `brew install tesseract` is enough.
 
 ### Build the release zip (Windows)
 
@@ -298,14 +324,39 @@ build.bat
 4. Trims Tesseract down to `tesseract.exe` and the `eng`/`osd` language data.
 5. Zips the exe and the `tesseract` folder into `MapleReader.zip`.
 
+### Build the release zip (macOS)
+
+Needs Python 3.10+ and [Homebrew](https://brew.sh).
+
+```bash
+./build_mac.sh
+```
+
+`build_mac.sh`:
+
+1. Installs the Python dependencies, and Tesseract and `dylibbundler` with Homebrew.
+2. Copies Tesseract out of Homebrew and uses `dylibbundler` to bundle the libraries it needs
+   into a `libs` folder next to it, so it runs on Macs without Homebrew. The build fails if
+   anything still points at Homebrew.
+3. Keeps only the `eng`/`osd` language data, and ad-hoc signs the rewritten binaries. Apple
+   Silicon won't run unsigned code.
+4. Builds `MapleReader.app` with PyInstaller and puts Tesseract in its `Contents/Resources`.
+5. Ad-hoc signs the app, checks the signature, and zips it into `MapleReader-mac.zip`.
+
+The app is built for the Mac's own architecture. It's ad-hoc signed only, not notarized, so
+Gatekeeper asks before the first launch (see [Quick start](#macos-apple-silicon)).
+
 ### Releases (CI)
 
-`.github/workflows/release.yml` runs the same build on `windows-latest`:
+`.github/workflows/release.yml` builds on `windows-latest` and on `macos-latest` (Apple
+Silicon) at the same time:
 
 - **Pushing a `v*` tag**, e.g. `git tag v1.0.0 && git push --tags`, builds
-  `MapleReader-v1.0.0.zip` and publishes it as a GitHub release with auto-generated notes.
-- **Running the workflow manually** from the Actions tab builds `MapleReader-dev.zip` and only
-  uploads it as a workflow artifact.
+  `MapleReader-windows-v1.0.0.zip` and `MapleReader-macos-v1.0.0.zip`. Once both builds
+  succeed, it publishes them together as one GitHub release with auto-generated notes. If
+  either build fails, nothing is published.
+- **Running the workflow manually** from the Actions tab builds `MapleReader-windows-dev.zip`
+  and `MapleReader-macos-dev.zip` and only uploads them as workflow artifacts.
 
 ---
 
@@ -317,6 +368,7 @@ build.bat
 | `unreadable digit` | A glyph in the EXP/% text didn't match. This is most likely a `5` whose shape differs from the built-in guess. It usually fixes itself once every other digit has been seen. |
 | `can't read status bar` | The bar was found, but the level, EXP or % couldn't be read. Try `--debug` and check `debug/level_proc.png`. |
 | `capture error` | Screen capture failed, for example because the screen is locked or a secure desktop is showing. |
+| Mac: `status bar not found` while the game is visible | Allow MapleReader under *Screen Recording* in System Settings → Privacy & Security, then quit and reopen it. Each new version needs this again. |
 | Values show `~` | A level-up was estimated. See [Level-ups](#level-ups). |
 | Rates reset by themselves | The character name changed. You can turn off *Start a new session when the character changes*. |
 | Overlay hidden behind the game | Turn on *Always on top*, and run the game in windowed or borderless mode. Exclusive fullscreen can cover overlays. |
