@@ -57,7 +57,9 @@ def test_graph_buttons_switch_the_mode(overlay):
 def test_settings_window_opens_and_restores_defaults(overlay, tmp_path):
     ov = overlay
     ov.open_settings()
-    assert ov.settings_win.exists() and len(ov.settings_win.nb.tabs()) == 6
+    nb = ov.settings_win.nb
+    assert ov.settings_win.exists() and [nb.tab(t, "text") for t in nb.tabs()] == \
+        ["General", "Position", "Rates", "Appearance", "Graph", "Data", "Discord"]
     ov.S["accent"] = "#a78bfa"; ov.S["discord_webhook"] = "keep-me"
     ov.restore_defaults()
     assert ov.S["accent"] == settings.DEFAULTS["accent"] and ov.S["discord_webhook"] == "keep-me"
@@ -159,8 +161,32 @@ def test_rates_and_discord_tabs_share_the_column_slot_rows(overlay):
     ov = overlay
     ov.open_settings()
     sw = ov.settings_win
-    def checks(tab):
-        f = sw.nb.nametowidget(sw.nb.tabs()[tab])
+    def checks(name):
+        f = next(sw.nb.nametowidget(t) for t in sw.nb.tabs() if sw.nb.tab(t, "text") == name)
         return [w.cget("text") for w in f.winfo_children() if w.winfo_class() == "TCheckbutton"]
-    assert [t for t in checks(1) if t.startswith("Column")] == ["Column 1", "Column 2", "Column 3", "Column 4"]
-    assert [t for t in checks(5) if t.startswith("Item")] == ["Item 1", "Item 2"]
+    assert [t for t in checks("Rates") if t.startswith("Column")] == ["Column 1", "Column 2", "Column 3", "Column 4"]
+    assert [t for t in checks("Discord") if t.startswith("Item")] == ["Item 1", "Item 2"]
+
+
+
+def test_placing_at_corners_and_centre(overlay, monkeypatch):
+    from msoverlay.ui import overlay as ov_mod, screens
+    ov = overlay
+    monkeypatch.setattr(screens, "work_area", lambda root, x, y: (0, 0, 1600, 900))   # one 1600x900 screen
+    E, W = ov_mod.EDGE, ov.W
+    def at():
+        ov.root.update(); return ov.root.winfo_x(), ov.root.winfo_y()
+    ov.move(300, 250); at()
+    ov.place("c");  assert at() == ((1600 - W) // 2, 250)           # centred across, same height
+    ov.place("tl"); assert at() == (E, E)
+    ov.place("tr"); assert at() == (1600 - W - E, E)
+    ov.place("bc"); assert at() == ((1600 - W) // 2, 900 - ov.height() - E)
+    ov.place("br"); assert at() == (1600 - W - E, 900 - ov.height() - E)
+    assert (ov.S["x"], ov.S["y"]) == at()                            # remembered
+    bottom = at()[1] + ov.height()
+    ov.toggle_graph(); x, y = at()                                   # at the bottom: grows upwards
+    assert y + ov.height() == bottom and ov.S["graph"]
+    ov.toggle_graph(); assert at()[1] + ov.height() == bottom        # and shrinks back down
+    ov.place("tl"); ov.toggle_graph()                                # (straight away: no Tk update between)
+    assert at() == (E, E)                                            # elsewhere: grows downwards as before
+    assert settings.load(paths.data_file("maple_settings.json"))["x"] == E    # the new spot was saved
