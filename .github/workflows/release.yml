@@ -72,11 +72,13 @@ jobs:
         with:
           name: ms-overlay-windows-${{ github.ref_name }}.zip
           path: dist
+          skip-decompress: true   # keep the zip as it is (it would otherwise be unpacked into dist)
 
       - uses: actions/download-artifact@v8
         with:
           name: ms-overlay-macos-${{ github.ref_name }}.zip
           path: dist
+          skip-decompress: true   # keep the zip as it is (it would otherwise be unpacked into dist)
 
       - name: Check both zips are there
         run: |
