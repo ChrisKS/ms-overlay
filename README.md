@@ -98,7 +98,9 @@ header reads `KIND · 15M`, or `KIND · SESSION` when the window is 0.
 | Kills | `KILLS` | Number of separate EXP gains seen in the window |
 | Avg per kill | `AVG/KILL` | EXP gained in the window ÷ kills |
 
-- A column shows `—` until there's enough data: at least one EXP gain, plus 8 seconds.
+- A column shows `—` until there's enough data: two EXP gains. The first gain only starts
+  the clock (see [How EXP is tracked](#how-exp-is-tracked)), so the numbers appear with the
+  second.
 - A number is **dimmed** while it's based on less time than its window covers. You can turn
   dimming off.
 - A `~` before an EXP value means a level-up had to be estimated. See
@@ -170,7 +172,9 @@ characters.
 - **Confirmation.** A new (level, EXP, %) reading must be seen **twice in a row** before it's
   accepted. This filters out one-frame misreads.
 - **Session start.** The first accepted reading is the baseline. The rate clock starts at the
-  **first EXP gain**, so idle time before you start grinding doesn't lower your rates.
+  **first EXP gain**, so idle time before you start grinding doesn't lower your rates. That gain
+  itself isn't counted, because how long it took is unknown. Rates appear with the second gain,
+  dimmed at first because they're based on very little time.
 - **Rate windows.** A window covers the last *N* minutes, but never goes back before the first
   EXP gain. A window of `0` covers the whole session.
 - **Kills.** Each accepted increase in EXP counts as one kill. Several kills that land between

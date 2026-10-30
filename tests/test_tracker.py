@@ -25,6 +25,16 @@ def test_a_reading_must_be_seen_twice():
     assert tr.cum_exp == 0
 
 
+def test_the_first_gain_starts_the_clock_and_the_second_starts_the_rates():
+    tr = Tracker()
+    feed(tr, 0, 100, 1_000_000, 2.0)
+    feed(tr, 100, 100, 1_010_000, 2.02)                   # first gain: starts the clock...
+    assert tr.rate(100, 300) is None and tr.rate(150, 300) is None   # ...but shows nothing, not 0
+    feed(tr, 103, 100, 1_020_000, 2.04)                   # second gain: rates appear at once
+    assert tr.rate(103, 300)[0] == pytest.approx(10_000 / 3 * 3600)
+    assert tr.rate(103, 300)[2] is False                  # (dimmed: far from a full window)
+
+
 def test_rates_start_at_the_first_gain():
     tr = Tracker()
     feed(tr, 0, 100, 1_000_000, 2.0)
