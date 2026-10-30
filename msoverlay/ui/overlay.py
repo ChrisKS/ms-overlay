@@ -15,11 +15,12 @@ from ..paths import DATA, MAC, WIN
 from ..session import Session, different_character
 from ..updates import REPO, UpdateChecker
 from ..settings import GRAPH_MODES
-from . import columns, graph
+from . import columns, graph, screens
 from .settings_window import SettingsWindow
 from .theme import BAD, BG, BORDER, CLEAR, DIM2, FG, FONT, GOOD, WARN, mix, rrect, see_through
 
 POLL_MS = 250
+EDGE = 16                       # pixels between the overlay and a screen edge it's placed at
 
 
 class Overlay:
@@ -102,20 +103,43 @@ class Overlay:
 
     def resize(self, initial=False):
         h = self.height()
-        for c in self.canvases: c.config(height=h)
         if initial and self.S["x"] is not None:
             x, y = self.S["x"], self.S["y"]
         elif initial:
             x, y = self.home()
-        else:
-            x, y = self.root.winfo_x(), self.root.winfo_y()
+        else:                          # at the bottom of the screen, or about to run off it: grow upwards
+            (x, y), old_h = self.pos, self.shown_h
+            _, top, _, bottom = self.screen_area()
+            if y + old_h >= bottom - EDGE - 2: y += old_h - h
+            y = max(top, min(y, bottom - h))
+        for c in self.canvases: c.config(height=h)
         self.move(x, y, h)
         self.bgcv.delete("all")
         rrect(self.bgcv, 3, 3, self.W - 3, h - 3, 26, fill=BG, outline=BORDER, width=2)
 
     def home(self):
         """The default position: centred at the top of the main screen."""
-        return (self.root.winfo_screenwidth() - self.W) // 2, 40
+        return self.spot("tc", screens.work_area(self.root, 0, 0))
+
+    def screen_area(self):
+        """The usable area of the screen the overlay is on (by its centre)."""
+        x, y = self.pos
+        return screens.work_area(self.root, x + self.W // 2, y + self.shown_h // 2)
+
+    def spot(self, where, area, y=None):
+        """Top-left corner that puts the overlay at `where` in `area` (left, top, right, bottom):
+        "tl", "tc", "tr", "bl", "bc", "br" (top/bottom, left/centre/right), or "c": centred
+        across, at height `y`."""
+        left, top, right, bottom = area
+        x = {"l": left + EDGE, "c": (left + right - self.W) // 2, "r": right - self.W - EDGE}[where[-1]]
+        if where == "c":
+            return x, y
+        return x, top + EDGE if where[0] == "t" else bottom - self.height() - EDGE
+
+    def place(self, where):
+        """Move to `where` (see spot) on the screen the overlay is on, and remember it."""
+        x, y = self.spot(where, self.screen_area(), y=self.pos[1])
+        self.move(x, y); self.save()
 
     def fix_stack(self):
         """Keep the layers in order: background < fill < line < text, and the settings window
@@ -151,15 +175,15 @@ class Overlay:
             pass
 
     def move(self, x, y, h=None):
+        """Place all layers. The overlay keeps its own position and height (pos, shown_h) rather
+        than asking Tk, which may not have applied a move yet."""
         h = h or self.height()
+        self.pos, self.shown_h = (int(x), int(y)), h
         for w in self.layers:
             w.geometry(f"{self.W}x{h}+{int(x)}+{int(y)}")
 
     def save(self):
-        try:
-            self.S["x"], self.S["y"] = self.root.winfo_x(), self.root.winfo_y()
-        except tk.TclError:
-            return
+        self.S["x"], self.S["y"] = self.pos
         settings.save(self.S)
 
     def quit(self):
@@ -179,7 +203,7 @@ class Overlay:
             if f"mode_{k}" in tags: self.S["mode"] = k; return self.redraw()
         self.fix_stack()
         if not self.S["lock_position"]:
-            self.drag = (e.x_root - self.root.winfo_x(), e.y_root - self.root.winfo_y())
+            self.drag = (e.x_root - self.pos[0], e.y_root - self.pos[1])
 
     def on_drag(self, e):
         if self.drag and not self.S["lock_position"]:
@@ -228,10 +252,6 @@ class Overlay:
             else: subprocess.Popen(["open" if MAC else "xdg-open", DATA])
         except Exception:
             pass
-
-    def reset_position(self):
-        self.S["x"], self.S["y"] = self.home()
-        self.move(self.S["x"], self.S["y"]); self.save()
 
     def restore_defaults(self):
         settings.restore_defaults(self.S)

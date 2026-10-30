@@ -20,14 +20,14 @@ class SettingsWindow:
         w = self.win = tk.Toplevel(root)
         w.title("ms-overlay – Settings"); w.configure(bg=BG); w.resizable(False, False)
         w.attributes("-topmost", True)
-        w.geometry(f"+{root.winfo_x() + 30}+{root.winfo_y() + 40}")
+        w.geometry(f"+{overlay.pos[0] + 30}+{overlay.pos[1] + 40}")
         self.style = self._style()
         self.nb = ttk.Notebook(w); self.nb.pack(fill="both", expand=True, padx=14, pady=(14, 6))
         self.webhook_status, self.presence_status = tk.StringVar(), tk.StringVar()
         self.update_status = tk.StringVar(value=overlay.updates.status)
         self.custom_dots = {}                            # settings key -> opens its colour picker
         self.keep = []                                   # Tk variables that must outlive their builder
-        for build in (self._general, self._rates, self._appearance, self._graph, self._data, self._discord):
+        for build in (self._general, self._position, self._rates, self._appearance, self._graph, self._data, self._discord):
             build()
         w.bind("<Destroy>", lambda e: root.after(30, overlay.fix_stack) if e.widget is w else None)
         foot = tk.Frame(w, bg=BG); foot.pack(fill="x", padx=14, pady=(0, 12))
@@ -203,8 +203,7 @@ class SettingsWindow:
         g = self.page("General")
         self.head(g, "Window", 0)
         self.check(g, 1, "Always on top", "topmost")
-        self.check(g, 2, "Lock position (disable dragging)", "lock_position")
-        self.check(g, 3, "Show character name", "show_name")
+        self.check(g, 2, "Show character name", "show_name")
         self.head(g, "Session", 4)
         self.check(g, 5, "Start a new session when the character changes", "reset_on_char")
         self.head(g, "Reading", 6)
@@ -240,6 +239,21 @@ class SettingsWindow:
             ttk.Label(f, text="minutes").grid(row=row, column=2, sticky="w")
             ttk.Combobox(f, state="readonly", width=34, textvariable=kv,
                          values=list(descriptions.values())).grid(row=row, column=3, padx=(14, 0))
+
+    def _position(self):
+        p = self.page("Position")
+        self.head(p, "Move the overlay", 0)
+        self.hint(p, 1, "To an edge or corner of the screen it's on, clear of the taskbar.", pady=(0, 6))
+        grid = self.row_frame(p, 2)
+        for (r, c), (where, text) in {
+                (0, 0): ("tl", "\u2196  Top left"), (0, 1): ("tc", "Top centre"), (0, 2): ("tr", "Top right  \u2197"),
+                (1, 1): ("c", "\u2194  Centre, same height"),
+                (2, 0): ("bl", "\u2199  Bottom left"), (2, 1): ("bc", "Bottom centre"), (2, 2): ("br", "Bottom right  \u2198"),
+        }.items():
+            ttk.Button(grid, text=text, width=20, command=lambda w=where: self.ov.place(w)).grid(row=r, column=c, padx=3, pady=3)
+        self.hint(p, 3, "Top centre is where the overlay starts. At the bottom of a screen, opening the graph grows the overlay upwards.", pady=(6, 0))
+        self.head(p, "Dragging", 4)
+        self.check(p, 5, "Lock position (disable dragging)", "lock_position")
 
     def _rates(self):
         r = self.page("Rates")
@@ -290,7 +304,6 @@ class SettingsWindow:
         ttk.Button(d, text="Open data folder", command=ov.open_data_folder).grid(row=2, column=0, sticky="w", pady=(8, 3), columnspan=2)
         self.head(d, "Actions", 3)
         ttk.Button(d, text="Reset session now", command=ov.reset).grid(row=4, column=0, sticky="w", pady=3)
-        ttk.Button(d, text="Reset window position", command=ov.reset_position).grid(row=4, column=1, sticky="w", padx=(10, 0), pady=3)
         self.head(d, "Defaults", 5)
         ttk.Button(d, text="Restore default settings", command=ov.restore_defaults).grid(row=6, column=0, sticky="w", pady=3, columnspan=2)
 

@@ -363,11 +363,23 @@ automatically.
 | Setting | Default | Notes |
 |---|---|---|
 | Always on top | On | |
-| Lock position | Off | Turns off dragging. |
 | Show character name | On | |
 | Start a new session when the character changes | On | See [New character](#new-character). |
 | Screen reads per second | 10 | 2–20. Higher means faster updates and slightly more CPU. |
 | Tell me when a new version is out | On | See [Updates](#updates). |
+
+### Position
+
+Buttons move the overlay to an edge or corner of the screen it's on: **Top left**, **Top
+centre**, **Top right**, **Bottom left**, **Bottom centre**, **Bottom right**, and **Centre,
+same height** (centred across the screen without moving up or down). It keeps 16 pixels from
+the edges and, on Windows, clear of the taskbar. The new position is saved. Top centre is where
+the overlay starts the first time.
+
+When the overlay is at the bottom of a screen, opening the graph grows it upwards instead of
+off the screen, and closing it shrinks it back down.
+
+**Lock position** (off by default) turns off dragging; the buttons still work.
 
 ### Rates
 
@@ -414,8 +426,8 @@ transparent windows stacked together, so each one can fade on its own.
 
 - **Save every EXP change to `maple_log.csv`.** On by default.
 - **Open data folder** opens the folder that holds the settings and log.
-- **Reset session now** and **Reset window position**. The default position is centred at the
-  top of the main screen.
+- **Reset session now.** (Moving the overlay back to where it started is **Top centre** under
+  Position.)
 - **Restore default settings** resets everything except the character name, the window
   position, and the Discord webhook URL and own Application ID.
 
@@ -510,6 +522,7 @@ and `python ms_overlay.py` keep working.
 | `ui/graph.py`, `ui/columns.py` | What the graph and the rate columns show, and drawing the graph |
 | `ui/settings_window.py` | The settings window |
 | `ui/theme.py` | Colours, fonts and drawing helpers |
+| `ui/screens.py` | The usable area of the screen the overlay is on |
 
 Only `ui/` and `capture.py` touch Tk or the screen; everything else can be used and tested on
 its own.
