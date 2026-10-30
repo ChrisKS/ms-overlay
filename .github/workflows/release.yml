@@ -58,20 +58,30 @@ jobs:
           mv ms-overlay.zip "$name"
           echo "ZIP_NAME=$name" >> "$GITHUB_ENV"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.ZIP_NAME }}
           path: ${{ env.ZIP_NAME }}
+          archive: false        # upload the zip as it is: no zip inside GitHub's own zip (the file name names it)
 
   release:
     needs: build
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
+          name: ms-overlay-windows-${{ github.ref_name }}.zip
           path: dist
-          merge-multiple: true
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: ms-overlay-macos-${{ github.ref_name }}.zip
+          path: dist
+
+      - name: Check both zips are there
+        run: |
+          ls -l dist
+          test -f "dist/ms-overlay-windows-$GITHUB_REF_NAME.zip" && test -f "dist/ms-overlay-macos-$GITHUB_REF_NAME.zip"
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
