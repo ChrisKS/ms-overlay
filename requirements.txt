@@ -4,3 +4,4 @@ numpy
 pytesseract
 pyinstaller
 pyobjc-framework-Quartz; sys_platform == "darwin"
+windows-capture; sys_platform == "win32"
