@@ -51,6 +51,7 @@ _learned = set()                 # digits resolved by elimination during this ru
 STRIP_REL = (-20, 0, 720, 7)     # the HP / MP / EXP line: brackets, EXP number and %
 LEVEL_REL = (-195, 1, -165, 15)  # the orange level box
 NAME_REL = (-158, 11, -30, 25)   # the character-name line (under the job)
+JOB_REL = (-158, -3, -30, 11)    # the job line, right above the name line (not yet checked on a real screen)
 EXP_START = 227                  # EXP digits start >= this many px right of the HP "[" (label ends at 226)
 
 
@@ -170,11 +171,55 @@ def read_level(img):
     return int(lvl) if lvl.isdigit() and 0 < int(lvl) < 1000 else None
 
 
-def read_name(img):
-    """OCR the character name from the status bar's name line. Majority vote over a few
-    scalings, since Tesseract is occasionally off by a letter on this small font."""
+LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+# Job names as the game shows them, every advancement. Read text must match one closely, so a
+# misread never comes out as a made-up job.
+JOBS = [
+    "Beginner", "Noblesse", "Citizen", "Legend",
+    # Explorers
+    "Warrior", "Fighter", "Crusader", "Hero", "Page", "White Knight", "Paladin",
+    "Spearman", "Berserker", "Dark Knight",
+    "Magician", "Wizard (Fire, Poison)", "Mage (Fire, Poison)", "Arch Mage (Fire, Poison)",
+    "Wizard (Ice, Lightning)", "Mage (Ice, Lightning)", "Arch Mage (Ice, Lightning)",
+    "Wizard (F/P)", "Mage (F/P)", "Arch Mage (F/P)", "Wizard (I/L)", "Mage (I/L)", "Arch Mage (I/L)",
+    "Cleric", "Priest", "Bishop",
+    "Bowman", "Archer", "Hunter", "Ranger", "Bowmaster", "Crossbowman", "Crossbow Master", "Sniper", "Marksman",
+    "Pathfinder",
+    "Thief", "Assassin", "Hermit", "Night Lord", "Bandit", "Chief Bandit", "Shadower",
+    "Blade Recruit", "Blade Acolyte", "Blade Specialist", "Blade Lord", "Blade Master", "Dual Blade",
+    "Pirate", "Brawler", "Marauder", "Buccaneer", "Gunslinger", "Outlaw", "Corsair",
+    "Cannoneer", "Cannon Trooper", "Cannon Master",
+    # Cygnus Knights
+    "Dawn Warrior", "Blaze Wizard", "Wind Archer", "Night Walker", "Thunder Breaker", "Mihile",
+    # Heroes
+    "Aran", "Evan", "Mercedes", "Phantom", "Luminous", "Shade",
+    # Resistance
+    "Battle Mage", "Wild Hunter", "Mechanic", "Xenon", "Blaster", "Demon Slayer", "Demon Avenger",
+    # Nova, Flora, Anima and others
+    "Kaiser", "Kain", "Cadena", "Angelic Buster", "Adele", "Illium", "Khali", "Ark",
+    "Hoyoung", "Lara", "Lynn", "Mo Xuan", "Sia Astra", "Ren",
+    "Hayato", "Kanna", "Zero", "Kinesis", "Beast Tamer", "Jett",
+]
+_JOB_KEYS = {re.sub(r"[^a-z]", "", j.lower()): j for j in JOBS}
+
+
+def match_job(text):
+    """The job name `text` was read as, or None if it isn't close to any real job."""
+    import difflib
+    key = re.sub(r"[^a-z]", "", (text or "").lower())
+    hit = difflib.get_close_matches(key, _JOB_KEYS, n=1, cutoff=0.85) if key else []
+    return _JOB_KEYS[hit[0]] if hit else None
+
+
+def _read_line(img, whitelist, name, spaces=True):
+    """OCR one line of near-white pixel text. Majority vote over a few scalings, since Tesseract
+    is occasionally off by a letter on this small font. -> the winning text, or None."""
     a = np.asarray(img.convert("RGB")).astype(int)
-    ink = a.min(axis=2) >= 215                       # the name is near-white pixel text
+    ink = a.min(axis=2) >= 215
+    if DEBUG:
+        os.makedirs("debug", exist_ok=True)
+        img.save(f"debug/{name}_raw.png")
     cols = np.where(ink.any(axis=0))[0]
     if len(cols) == 0:
         return None
@@ -184,15 +229,23 @@ def read_name(img):
     for scale, flt in ((4, Image.BICUBIC), (3, Image.LANCZOS), (4, Image.LANCZOS), (3, Image.BICUBIC)):
         p = ImageOps.expand(b.resize((b.width * scale, b.height * scale), flt), border=24, fill=255)
         try:
-            t = pytesseract.image_to_string(
-                p, config="--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789").strip()
+            t = pytesseract.image_to_string(p, config=f"--psm 7 -c tessedit_char_whitelist={whitelist}").strip()
         except Exception:
             continue
-        if t: votes.append(t.replace(" ", ""))
+        if t: votes.append(t if spaces else t.replace(" ", ""))
     if not votes:
         return None
-    best = max(set(votes), key=lambda v: (votes.count(v), -votes.index(v)))
-    return best
+    return max(set(votes), key=lambda v: (votes.count(v), -votes.index(v)))
+
+
+def read_name(img):
+    """The character name from the status bar's name line."""
+    return _read_line(img, LETTERS + "0123456789", "name", spaces=False)
+
+
+def read_job(img):
+    """The job from the status bar's job line, or None unless it reads as a real job name."""
+    return match_job(_read_line(img, LETTERS + "()/,", "job"))
 
 
 def read_image(img):
@@ -207,5 +260,6 @@ def read_image(img):
     res = read_strip(a[top:bottom, max(left, 0):right])
     res["level"] = read_level(img.crop(rel_rect(x, y, LEVEL_REL)))
     res["name"] = read_name(img.crop(rel_rect(x, y, NAME_REL)))
+    res["job"] = read_job(img.crop(rel_rect(x, y, JOB_REL)))
     return res
 

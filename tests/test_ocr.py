@@ -43,3 +43,12 @@ def test_no_status_bar():
 def test_read_image_reads_the_strip():
     r = ocr.read_image(Image.fromarray(status_bar("4,567", "45.67%")))
     assert (r["exp"], r["pct"]) == (4567, 45.67)
+
+
+@pytest.mark.parametrize("read, job", [
+    ("Dark Knight", "Dark Knight"), ("DarkKnight", "Dark Knight"), ("Dark Knigth", "Dark Knight"),
+    ("Hero", "Hero"), ("ArchMage(FP)", "Arch Mage (F/P)"), ("Nightlord", "Night Lord"),
+    ("Herc", None), ("l1", None), ("", None), (None, None), ("Character", None),
+])
+def test_only_real_job_names_are_accepted(read, job):
+    assert ocr.match_job(read) == job

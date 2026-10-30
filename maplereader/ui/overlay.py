@@ -35,6 +35,7 @@ class Overlay:
         self.settings_win = None
         self._fonts = {}
         self.name_seen = False
+        self.job = None             # read from the status bar; None until it reads as a real job
         self.acc = self.acc_fill = None
         self.c_fg = self.c_label = self.c_sub = self.c_faint = FG
 
@@ -307,17 +308,21 @@ class Overlay:
         elif kind == "name":
             name = msg[1]
             if name != self.S["name"]:
-                if self.S["reset_on_char"] and self.name_seen and different_character(name, self.S["name"]):
-                    self.end_session()            # a different character, not just an OCR wobble
+                if self.name_seen and different_character(name, self.S["name"]):
+                    self.job = None               # a different character: its job is read anew
+                    if self.S["reset_on_char"]:
+                        self.end_session()        # (not just an OCR wobble)
                 self.S["name"] = name; self.save()
             self.name_seen = True
+        elif kind == "job":
+            self.job = msg[1]
         elif kind == "read":
             _, t, r = msg
             changed, new_level = self.session.read(t, r)
             if changed and self.S["log_csv"]:
                 log_row(t, *self.session.cur)
             if new_level:
-                self.discord.level_up(new_level, self.session)
+                self.discord.level_up(new_level, self.job)
 
     def poll(self):
         try:

@@ -157,10 +157,13 @@ The game's status bar is found and read on every frame, by default 10 times a se
 3. **Level.** The orange level box is read with Tesseract. It's re-read when the level is
    unknown, every 3 seconds, and right away when the % drops by more than 30 (a likely
    level-up).
-4. **Character name.** The name line is read with Tesseract on a separate, slower thread. It
-   reads about every second until 5 readings are collected, then every 15 seconds. Each reading
-   is a majority vote over several image scalings, and a name is accepted once it wins the vote
-   across recent readings.
+4. **Character name and job.** The name line, and the job line above it, are read with
+   Tesseract on a separate, slower thread. It reads about every second until 5 readings are
+   collected, then every 15 seconds. Each reading is a majority vote over several image
+   scalings, and a name or job is accepted once it wins the vote across recent readings. The
+   job must also closely match a real MapleStory job name, so a misread is dropped rather than
+   shown. The job line's position is derived from the name line's and hasn't been checked
+   against a real screen yet; `--debug` saves `debug/job_raw.png` to check it.
 
 A reading is only used when the level, the EXP and the % were all read without any unknown
 characters.
@@ -237,9 +240,9 @@ channel. It needs no bot and no Discord login.
 
 It posts:
 
-- **Level-ups:** "Mapler reached level 143!", with the session time, EXP gained and EXP/h so
-  far. Each level is posted once per run, even if the level is briefly misread. A level-up only
-  counts if the new level starts below 50%.
+- **Level-ups:** "Mapler (Hero) reached level 143! 🎉". The job is left out until it has been
+  read. Each level is posted once per run, even if the level is briefly misread. A level-up only
+  counts if the new level starts below 50%. Optionally with a screenshot of the game; see below.
 - **Session summaries:** time, EXP gained, average EXP/h, level (e.g. `142 → 143 (0,31%)`),
   level % gained and kills. A summary is posted when a session ends: when you reset it, when
   the character changes, or when you quit. Sessions with less than 5 minutes since the first
@@ -250,6 +253,28 @@ fails (no internet, or the webhook was deleted), the reason is shown next to the
 
 The webhook URL is hidden in the settings window because anyone who has it can post to that
 channel. It's stored in plain text in `maple_settings.json`, so don't share that file.
+
+#### Screenshots with level-ups
+
+Turn on **Attach a screenshot of the game to level-up posts** to add a picture of the game,
+taken a second after the level-up so the level-up effect shows. It's off by default.
+
+**Only the MapleStory window is captured, never anything else on the screen.** The game
+window itself is captured, not the area of the screen where it is, so nothing covering the
+game (the overlay, notifications, other windows) and nothing around it can be in the picture:
+
+- **Windows:** the window of the `MapleStory.exe` process, drawn by Windows on its own,
+  without the title bar.
+- **macOS:** the window of the app named MapleStory, captured on its own. A browser tab or
+  other window merely *titled* MapleStory never matches.
+
+If the game window can't be found or captured on its own (minimised, or exclusive fullscreen,
+which captures as black), the post goes without a picture and the status next to the test
+button says so. It never falls back to capturing the screen. Other platforms never attach a
+picture.
+
+The picture shows whatever the game shows, chat included. With the option on, **Send test
+message** attaches a screenshot too, so you can check what would be shared.
 
 ### Profile status (Rich Presence)
 
@@ -355,6 +380,7 @@ transparent windows stacked together, so each one can fade on its own.
 |---|---|---|
 | Webhook URL | Empty | See [Channel posts](#channel-posts-webhook). |
 | Post when you level up | On | Only once a webhook URL is set. |
+| Attach a screenshot of the game to level-up posts | Off | See [Screenshots with level-ups](#screenshots-with-level-ups). |
 | Post a summary when a session ends | On | Only once a webhook URL is set, and only for sessions of 5+ minutes. |
 | Show on my Discord profile | Off | See [Profile status](#profile-status-rich-presence). |
 | Application ID | Empty | The ID of your Discord application. |
@@ -431,6 +457,7 @@ and `python maple_reader.py` keep working.
 | `session.py` | The core without UI: readings in, session out, with a clock that stops while paused |
 | `datalog.py` | The CSV log |
 | `discord.py` | Webhook posts, Rich Presence, and the messages they send |
+| `gamewindow.py` | Screenshots of the game window only (Windows and macOS) |
 | `ui/overlay.py` | The overlay window |
 | `ui/graph.py`, `ui/columns.py` | What the graph and the rate columns show, and drawing the graph |
 | `ui/settings_window.py` | The settings window |
