@@ -1,0 +1,26 @@
+name: Tests
+
+on:
+  push:
+    branches: ["**"]      # not tags: a release tag runs the tests through the release workflow
+  pull_request:
+  workflow_call:          # the release workflow runs the tests before building
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q xvfb
+          pip install -r requirements.txt pytest
+
+      - name: Run tests
+        run: xvfb-run -a python -m pytest -v    # a virtual display for the overlay tests

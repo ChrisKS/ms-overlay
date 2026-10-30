@@ -9,7 +9,11 @@ permissions:
   contents: write         # needed to create the release
 
 jobs:
+  tests:
+    uses: ./.github/workflows/tests.yml
+
   build:
+    needs: tests
     strategy:
       fail-fast: false
       matrix:
