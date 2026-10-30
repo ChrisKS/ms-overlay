@@ -8,6 +8,9 @@ from ..settings import (ACCENTS, DEFAULTS, FONT_SCALES, GRAPH_MODES, GRAPH_STYLE
 from .theme import BG, BORDER, BUTTON, BUTTON_HOVER, DIM, FG, FIELD, FONT, SLIDER, TAB
 
 
+TAB_PADDING = (14, 7)
+
+
 class SettingsWindow:
     def __init__(self, overlay):
         self.ov, self.S = overlay, overlay.S
@@ -46,8 +49,11 @@ class SettingsWindow:
         st.configure(".", background=BG, foreground=FG, fieldbackground=FIELD, bordercolor=BORDER,
                      lightcolor=BG, darkcolor=BG, troughcolor=FIELD, font=(FONT, 10), focuscolor=BG)
         st.configure("TNotebook", background=BG, borderwidth=0, tabmargins=(0, 0, 0, 0))
-        st.configure("TNotebook.Tab", background=TAB, foreground=DIM, padding=(14, 7), borderwidth=0)
-        st.map("TNotebook.Tab", background=[("selected", BG)], foreground=[("selected", FG)])
+        st.configure("TNotebook.Tab", background=TAB, foreground=DIM, padding=TAB_PADDING, borderwidth=0)
+        # clam gives the selected tab other padding and stretches it; keep every tab the same size
+        # so the tabs don't shift when one is clicked
+        st.map("TNotebook.Tab", background=[("selected", BG)], foreground=[("selected", FG)],
+               padding=[("selected", TAB_PADDING)], expand=[("selected", (0, 0, 0, 0))])
         st.configure("TCheckbutton", background=BG, foreground=FG, indicatorbackground=FIELD, indicatorforeground=FG)
         st.configure("TRadiobutton", background=BG, foreground=FG, indicatorbackground=FIELD)
         self._accent_indicators(st, acc)

@@ -72,3 +72,22 @@ def test_pause_and_reset_from_the_menu_actions(overlay):
     ov.toggle_pause(); assert ov.session.state == "paused"
     ov.toggle_pause(); ov.reset()
     assert ov.session.tracker.t0 is None
+
+
+def test_settings_tabs_keep_their_size_when_selected(overlay):
+    """Clicking a tab must not resize it or shift the others."""
+    overlay.open_settings()
+    nb = overlay.settings_win.nb
+    def tab_edges(y):
+        overlay.root.update()
+        edges, cur = [], None
+        for x in range(nb.winfo_width()):
+            try: i = nb.index(f"@{x},{y}")
+            except tk.TclError: i = None
+            if i != cur: edges.append((x, i)); cur = i
+        return edges
+    layouts = set()
+    for i in range(len(nb.tabs())):
+        nb.select(i)
+        layouts.add((tuple(tab_edges(2)), tuple(tab_edges(16))))   # top edge and middle of the tabs
+    assert len(layouts) == 1
