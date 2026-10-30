@@ -379,10 +379,10 @@ window has filled up is on by default.
 
 | Setting | Options |
 |---|---|
-| Text colour | White, Soft, Yellow, Cyan, Mint, Pink |
+| Text colour | White, Silver, Sky, Cyan, Mint, Yellow, Amber, Orange, Rose, Pink, Violet, or any colour with the rainbow dot (opens the colour picker). A custom colour shows in that dot. |
 | Text size | Small, Normal, Large, Extra large |
 | Text shadow | On or off (default on) |
-| Accent colour | Sky, Mint, Amber, Rose, Violet, Orange, Silver. Used for the progress bar, the graph and the buttons. |
+| Accent colour | The same colours as the text, or any colour with the rainbow dot. Used for the progress bar, the graph and the buttons. |
 | Opacity | **Background** 0–100%, **Text** 20–100% |
 | Number format | `1.234.567` (Danish, the default), `1,234,567` (English), `1 234 567` (spaces), `1.2M` (compact) |
 
