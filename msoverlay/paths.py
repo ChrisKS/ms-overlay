@@ -6,14 +6,14 @@ WIN = sys.platform == "win32"
 MAC = sys.platform == "darwin"
 FROZEN = getattr(sys, "frozen", False)
 
-# The folder holding maple_reader.exe (or the macOS app's executable); the repository root when run
+# The folder holding ms-overlay.exe (or the macOS app's executable); the repository root when run
 # from source. The bundled Tesseract is looked for here.
 BASE = (os.path.dirname(sys.executable) if FROZEN
         else os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Settings and the log live next to the exe, except in the macOS app, whose own folder must stay
 # unchanged (writing into it would break its code signature).
-DATA = os.path.expanduser("~/Library/Application Support/MapleReader") if MAC and FROZEN else BASE
+DATA = os.path.expanduser("~/Library/Application Support/ms-overlay") if MAC and FROZEN else BASE
 
 
 def data_file(name):

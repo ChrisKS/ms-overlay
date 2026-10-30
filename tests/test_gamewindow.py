@@ -3,7 +3,7 @@ import sys
 import pytest
 from PIL import Image
 
-from maplereader import gamewindow
+from msoverlay import gamewindow
 
 
 def test_blank_pictures_are_rejected():

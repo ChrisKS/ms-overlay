@@ -10,8 +10,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-from maplereader import discord, fmt, settings
-from maplereader.session import Session
+from msoverlay import discord, fmt, settings
+from msoverlay.session import Session
 
 
 def parse_post(content_type, body):

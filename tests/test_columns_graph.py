@@ -1,8 +1,8 @@
 import pytest
 
-from maplereader import fmt
-from maplereader.tracker import Tracker
-from maplereader.ui import columns, graph
+from msoverlay import fmt
+from msoverlay.tracker import Tracker
+from msoverlay.ui import columns, graph
 
 
 @pytest.fixture

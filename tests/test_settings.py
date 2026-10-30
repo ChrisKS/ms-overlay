@@ -1,6 +1,6 @@
 import json
 
-from maplereader import settings
+from msoverlay import settings
 
 
 def test_defaults_are_valid_and_independent_copies():

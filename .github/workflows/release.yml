@@ -31,25 +31,25 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Build MapleReader.zip (Windows)
+      - name: Build ms-overlay.zip (Windows)
         if: matrix.os == 'windows'
         shell: powershell
         run: ./build.ps1
 
-      - name: Build MapleReader-mac.zip (macOS)
+      - name: Build ms-overlay-mac.zip (macOS)
         if: matrix.os == 'macos'
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
           ./build_mac.sh
-          mv MapleReader-mac.zip MapleReader.zip
+          mv ms-overlay-mac.zip ms-overlay.zip
 
       - name: Name the zip after the platform and version
         shell: bash
         run: |
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then v="$GITHUB_REF_NAME"; else v="dev"; fi
-          name="MapleReader-${{ matrix.os }}-$v.zip"
-          mv MapleReader.zip "$name"
+          name="ms-overlay-${{ matrix.os }}-$v.zip"
+          mv ms-overlay.zip "$name"
           echo "ZIP_NAME=$name" >> "$GITHUB_ENV"
 
       - uses: actions/upload-artifact@v4

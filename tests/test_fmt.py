@@ -1,6 +1,6 @@
 import pytest
 
-from maplereader import fmt
+from msoverlay import fmt
 
 
 @pytest.fixture(autouse=True)

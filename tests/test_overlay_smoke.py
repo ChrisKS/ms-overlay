@@ -11,14 +11,14 @@ try:
 except tk.TclError:
     pytest.skip("no display", allow_module_level=True)
 
-from maplereader import paths, settings                      # noqa: E402
-from maplereader.settings import GRAPH_MODES, GRAPH_STYLES   # noqa: E402
+from msoverlay import paths, settings                      # noqa: E402
+from msoverlay.settings import GRAPH_MODES, GRAPH_STYLES   # noqa: E402
 
 
 @pytest.fixture
 def overlay(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "DATA", str(tmp_path))
-    from maplereader.ui import overlay as ov_mod
+    from msoverlay.ui import overlay as ov_mod
     monkeypatch.setattr(ov_mod, "POLL_MS", 10 ** 9)          # the test calls poll() itself
     ov = ov_mod.Overlay(demo=False)
     yield ov

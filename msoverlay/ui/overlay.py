@@ -43,7 +43,7 @@ class Overlay:
         # fade a whole window): background (root) < fill < graph line < text/UI. Everything above the
         # background is drawn on a colour-keyed transparent canvas.
         r = self.root = tk.Tk()
-        r.title("MapleReader")
+        r.title("ms-overlay")
         r.overrideredirect(True)
         r.configure(bg=CLEAR)
         see_through(r)                                # rounded corners

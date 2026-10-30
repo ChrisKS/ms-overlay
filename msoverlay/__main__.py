@@ -1,10 +1,10 @@
-"""Command line: `python -m maplereader` (or maple_reader.exe / maple_reader.py)."""
+"""Command line: `python -m msoverlay` (or ms-overlay.exe / ms_overlay.py)."""
 import argparse
 import sys
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="maple_reader", description="MapleStory EXP overlay")
+    ap = argparse.ArgumentParser(prog="ms-overlay", description="MapleStory EXP overlay")
     ap.add_argument("--image", help="read a screenshot and print the result")
     ap.add_argument("--debug", action="store_true", help="save the level OCR crop to ./debug")
     ap.add_argument("--demo", action="store_true", help="fake data, to preview the UI")

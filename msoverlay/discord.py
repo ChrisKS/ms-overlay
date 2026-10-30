@@ -13,9 +13,9 @@ import uuid
 from . import fmt, gamewindow
 from .tracker import WHOLE, eta_seconds
 
-USER_AGENT = "MapleReader (https://github.com/ChrisKS/ms-overlay)"
+USER_AGENT = "ms-overlay (https://github.com/ChrisKS/ms-overlay)"
 WEBHOOK_RE = re.compile(r"https://(?:(?:ptb|canary)\.)?discord(?:app)?\.com/api/webhooks/\d+/[\w-]+")
-# MapleReader's own Discord application: what profiles show after "Playing" (not a secret; every
+# ms-overlay's own Discord application: what profiles show after "Playing" (not a secret; every
 # Rich Presence app ships its ID). A user can set their own in the settings instead.
 APP_ID = "1565725885989003434"
 SUMMARY_MIN = 300                # a session needs this many seconds since its first EXP gain to be posted
@@ -153,14 +153,14 @@ class Presence:
 
 def embed(title, fields, color):
     """A webhook message with one card: a title and short name/value fields side by side."""
-    return {"username": "MapleReader", "embeds": [{
+    return {"username": "ms-overlay", "embeds": [{
         "title": title, "color": int(color[1:], 16),
         "fields": [{"name": k, "value": v, "inline": True} for k, v in fields]}]}
 
 
 def test_message(name, levelups, sessions, color):
     posts = [t for on, t in ((levelups, "level-ups"), (sessions, "session summaries")) if on]
-    return embed("MapleReader is connected \u2714",
+    return embed("ms-overlay is connected \u2714",
                  [("Character", name), ("Posts", ", ".join(posts) or "none (turned off)")], color)
 
 
@@ -270,7 +270,7 @@ class DiscordLink:
             if msg: self._send(msg, wait=wait)
 
     def app_id(self):
-        """The application presence is shown under: the user's own if set, else MapleReader's."""
+        """The application presence is shown under: the user's own if set, else ms-overlay's."""
         return self.S["discord_app_id"] or APP_ID
 
     def presence_on(self):

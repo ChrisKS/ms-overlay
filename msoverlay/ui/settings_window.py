@@ -16,7 +16,7 @@ class SettingsWindow:
         self.ov, self.S = overlay, overlay.S
         root = overlay.root
         w = self.win = tk.Toplevel(root)
-        w.title("MapleReader – Settings"); w.configure(bg=BG); w.resizable(False, False)
+        w.title("ms-overlay – Settings"); w.configure(bg=BG); w.resizable(False, False)
         w.attributes("-topmost", True)
         w.geometry(f"+{root.winfo_x() + 30}+{root.winfo_y() + 40}")
         self.style = self._style()
@@ -280,5 +280,5 @@ class SettingsWindow:
         af = self.row_frame(dc, 13, pady=(8, 0))
         ttk.Label(af, text="Own Application ID").pack(side="left")
         ttk.Entry(af, textvariable=self.svar("discord_app_id"), width=24).pack(side="left", padx=(10, 0))
-        self.hint(dc, 14, "Optional. Leave empty to use MapleReader\u2019s own application. To show another name after \u201cPlaying\u201d, "
+        self.hint(dc, 14, "Optional. Leave empty to use ms-overlay\u2019s own application. To show another name after \u201cPlaying\u201d, "
                           "create an application at discord.com/developers/applications and paste its Application ID.", wrap=470)

@@ -1,4 +1,4 @@
-# Builds MapleReader.zip: maple_reader.exe + bundled portable Tesseract.
+# Builds ms-overlay.zip: ms-overlay.exe + bundled portable Tesseract.
 # Run on Windows via build.bat. Needs Python 3.10+ on PATH and internet access.
 # No installers are run and no admin rights are needed: Tesseract's installer is
 # unpacked with 7-Zip (itself unpacked from its MSI, not installed).
@@ -10,8 +10,8 @@ $SevenUrl = "https://github.com/ip7z/7zip/releases/download/23.01/7z2301-x64.msi
 $Build    = Join-Path $PSScriptRoot "build"
 $TessDir  = Join-Path $Build "tesseract"
 $SevenDir = Join-Path $Build "7zip"
-$Package  = Join-Path $Build "MapleReader"
-$ZipPath  = Join-Path $PSScriptRoot "MapleReader.zip"
+$Package  = Join-Path $Build "ms-overlay"
+$ZipPath  = Join-Path $PSScriptRoot "ms-overlay.zip"
 
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) { throw "Python not found on PATH." }
 New-Item -ItemType Directory -Force $Build | Out-Null
@@ -46,14 +46,14 @@ if (-not (Test-Path "$TessDir\tesseract.exe")) {
 }
 
 Write-Host "==> Building exe with PyInstaller"
-python -m PyInstaller --onefile --noconsole --noconfirm --name maple_reader `
-    --distpath "$Build\dist" --workpath "$Build\pyi" --specpath "$Build" maple_reader.py
-if (-not (Test-Path "$Build\dist\maple_reader.exe")) { throw "PyInstaller build failed." }
+python -m PyInstaller --onefile --noconsole --noconfirm --name ms-overlay `
+    --distpath "$Build\dist" --workpath "$Build\pyi" --specpath "$Build" ms_overlay.py
+if (-not (Test-Path "$Build\dist\ms-overlay.exe")) { throw "PyInstaller build failed." }
 
 Write-Host "==> Assembling package"
 if (Test-Path $Package) { Remove-Item -Recurse -Force $Package }
 New-Item -ItemType Directory $Package | Out-Null
-Copy-Item "$Build\dist\maple_reader.exe" $Package
+Copy-Item "$Build\dist\ms-overlay.exe" $Package
 Copy-Item $TessDir "$Package\tesseract" -Recurse
 $T = "$Package\tesseract"
 # Trim: installer leftovers, docs, helper tools, Java viewers, extra languages
