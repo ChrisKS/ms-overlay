@@ -432,7 +432,24 @@ and `python maple_reader.py` keep working.
 | `ui/settings_window.py` | The settings window |
 | `ui/theme.py` | Colours, fonts and drawing helpers |
 
-Only `ui/` and `capture.py` touch Tk or the screen; everything else can be used on its own.
+Only `ui/` and `capture.py` touch Tk or the screen; everything else can be used and tested on
+its own.
+
+### Tests
+
+```bash
+pip install pytest
+```
+
+```bash
+python -m pytest
+```
+
+The tests cover formatting, settings, the tracker and session (including pausing), the reader
+(against status bars drawn pixel by pixel with the game's glyphs), the graph and columns, and
+Discord (against a local fake webhook and a fake Discord app). A few tests build the real
+overlay window; they need Tk and a display, and are skipped without them. On Linux without a
+screen, use `xvfb-run -a python -m pytest`.
 
 ### Build the release zip (Windows)
 
@@ -472,15 +489,17 @@ Needs Python 3.10+ and [Homebrew](https://brew.sh).
 The app is built for the Mac's own architecture. It's ad-hoc signed only, not notarized, so
 Gatekeeper asks before the first launch (see [Quick start](#macos-apple-silicon)).
 
-### Releases (CI)
+### CI
 
-`.github/workflows/release.yml` builds on `windows-latest` and on `macos-latest` (Apple
-Silicon) at the same time:
+`.github/workflows/tests.yml` runs the tests on every push and pull request.
+
+`.github/workflows/release.yml` runs the same tests, then builds on `windows-latest` and on
+`macos-latest` (Apple Silicon) at the same time:
 
 - **Pushing a `v*` tag**, e.g. `git tag v1.0.0 && git push --tags`, builds
   `MapleReader-windows-v1.0.0.zip` and `MapleReader-macos-v1.0.0.zip`. Once both builds
-  succeed, it publishes them together as one GitHub release with auto-generated notes. If
-  either build fails, nothing is published.
+  succeed, it publishes them together as one GitHub release with auto-generated notes. If the
+  tests or either build fail, nothing is published.
 - **Running the workflow manually** from the Actions tab builds `MapleReader-windows-dev.zip`
   and `MapleReader-macos-dev.zip` and only uploads them as workflow artifacts.
 

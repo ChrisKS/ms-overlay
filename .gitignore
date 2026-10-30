@@ -6,3 +6,5 @@ maple_settings.json
 maple_log.csv
 maple_glyphs.json
 *.zip
+.pytest_cache/
+debug/
